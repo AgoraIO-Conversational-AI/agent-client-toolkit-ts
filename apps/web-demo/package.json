@@ -1,0 +1,29 @@
+{
+  "name": "agora-agent-client-toolkit-web-demo",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Focused web demo for local agora-agent-client-toolkit SOS/EOS validation",
+  "scripts": {
+    "dev": "node server/dev.mjs",
+    "dev:vite": "vite",
+    "server": "node server/server.mjs",
+    "build": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "agora-agent-client-toolkit": "workspace:*",
+    "agora-agent-client-toolkit-react": "workspace:*",
+    "agora-rtc-react": "^2.2.0",
+    "agora-rtc-sdk-ng": "^4.23.4",
+    "agora-rtm": "^2.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.4.0"
+  }
+}
