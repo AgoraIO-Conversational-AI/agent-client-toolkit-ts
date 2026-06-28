@@ -1,12 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { AgoraVoiceAI } from '../../../src/core/conversational-ai';
 import { AgoraVoiceAIEvents } from '../../../src/core/events';
-import { MessageType, RTCEventType } from '../../../src/core/types';
-import { createMockRTCClient } from './helpers/mocks';
+import { MessageType, RTCEventType, RTMEventType } from '../../../src/core/types';
+import { createMockRTCClient, createMockRTMClient } from './helpers/mocks';
 
 describe('AgoraVoiceAI event handlers', () => {
   afterEach(() => {
-    try { AgoraVoiceAI.getInstance().destroy(); } catch { /* ok */ }
+    try {
+      AgoraVoiceAI.getInstance().destroy();
+    } catch {
+      /* ok */
+    }
   });
 
   it('RTC stream message triggers TRANSCRIPT_UPDATED', async () => {
@@ -137,5 +141,149 @@ describe('AgoraVoiceAI event handlers', () => {
     ai.emit(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, 'uid', {} as never);
 
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('RTM user.manual_sos.result emits USER_MANUAL_SOS', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const handler = vi.fn();
+    ai.on(AgoraVoiceAIEvents.USER_MANUAL_SOS, handler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.MESSAGE, {
+      publisher: 'agent-uid',
+      message: JSON.stringify({
+        event_type: MessageType.USER_MANUAL_SOS_RESULT,
+        event_id: 'evt-sos-001',
+        event_ms: 1710000000100,
+        payload: {
+          success: true,
+          request_id: 'sos-req-001',
+          turn_id: 7,
+        },
+      }),
+    });
+
+    expect(handler).toHaveBeenCalledWith('agent-uid', {
+      eventId: 'evt-sos-001',
+      timestamp: 1710000000100,
+      payload: {
+        success: true,
+        requestId: 'sos-req-001',
+        turnId: 7,
+        errorMessage: null,
+      },
+    });
+  });
+
+  it('RTM user.manual_eos.result emits USER_MANUAL_EOS and preserves failure message', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const handler = vi.fn();
+    ai.on(AgoraVoiceAIEvents.USER_MANUAL_EOS, handler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.MESSAGE, {
+      publisher: 'agent-uid',
+      message: JSON.stringify({
+        object: MessageType.USER_MANUAL_EOS_RESULT,
+        event_id: 'evt-eos-001',
+        event_ms: 1710000000200,
+        payload: {
+          success: false,
+          request_id: 'eos-req-001',
+          error_message: 'No turns available for EOS labeling.',
+        },
+      }),
+    });
+
+    expect(handler).toHaveBeenCalledWith('agent-uid', {
+      eventId: 'evt-eos-001',
+      timestamp: 1710000000200,
+      payload: {
+        success: false,
+        requestId: 'eos-req-001',
+        turnId: null,
+        errorMessage: 'No turns available for EOS labeling.',
+      },
+    });
+  });
+
+  it('RTM assistant.manual_eos.result emits AGENT_MANUAL_EOS', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const handler = vi.fn();
+    ai.on(AgoraVoiceAIEvents.AGENT_MANUAL_EOS, handler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.MESSAGE, {
+      publisher: 'agent-uid',
+      message: JSON.stringify({
+        event_type: MessageType.AGENT_MANUAL_EOS_RESULT,
+        event_id: 'evt-agent-eos-001',
+        event_ms: 1710000000300,
+        payload: {
+          reason: 'max_audio_duration',
+          max_duration_ms: 600000,
+          turn_id: 23,
+        },
+      }),
+    });
+
+    expect(handler).toHaveBeenCalledWith('agent-uid', {
+      eventId: 'evt-agent-eos-001',
+      timestamp: 1710000000300,
+      payload: {
+        reason: 'max_audio_duration',
+        maxDurationMs: 600000,
+        turnId: 23,
+      },
+    });
+  });
+
+  it('RTM assistant.manual_eos.result maps missing numeric fields to null', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const handler = vi.fn();
+    ai.on(AgoraVoiceAIEvents.AGENT_MANUAL_EOS, handler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.MESSAGE, {
+      publisher: 'agent-uid',
+      message: JSON.stringify({
+        event_type: MessageType.AGENT_MANUAL_EOS_RESULT,
+        event_id: 'evt-agent-eos-002',
+        event_ms: 1710000000400,
+        payload: {
+          reason: 'max_audio_duration',
+        },
+      }),
+    });
+
+    expect(handler).toHaveBeenCalledWith('agent-uid', {
+      eventId: 'evt-agent-eos-002',
+      timestamp: 1710000000400,
+      payload: {
+        reason: 'max_audio_duration',
+        maxDurationMs: null,
+        turnId: null,
+      },
+    });
   });
 });

@@ -44,6 +44,18 @@ export interface UseConversationalAIReturn {
    */
   interrupt: (agentUserId: string) => Promise<void>;
   /**
+   * Trigger a manual start-of-speech marker.
+   * @returns The request ID used to correlate the later USER_MANUAL_SOS event.
+   * @remarks Requires `rtmConfig` to be present in the hook config.
+   */
+  manualSOS: (agentUserId: string, requestId?: string) => Promise<string>;
+  /**
+   * Trigger a manual end-of-speech marker.
+   * @returns The request ID used to correlate the later USER_MANUAL_EOS event.
+   * @remarks Requires `rtmConfig` to be present in the hook config.
+   */
+  manualEOS: (agentUserId: string, requestId?: string) => Promise<string>;
+  /**
    * Send a plain-text message to the agent.
    * @remarks Requires `rtmConfig` to be present in the hook config.
    * Throws `[AgoraVoiceAI] This method requires RTM.` when called without RTM.
@@ -58,6 +70,13 @@ export interface UseConversationalAIReturn {
 /** Internal return type that includes the AI instance for context provision. */
 interface UseConversationalAICoreReturn extends UseConversationalAIReturn {
   aiInstance: AgoraVoiceAI | null;
+}
+
+function requireReadyInstance(instance: AgoraVoiceAI | null): AgoraVoiceAI {
+  if (!instance) {
+    throw new Error('[ConversationalAI] AgoraVoiceAI instance is not initialized yet.');
+  }
+  return instance;
 }
 
 /**
@@ -207,6 +226,14 @@ function useConversationalAICore(config: UseConversationalAIConfig): UseConversa
     await aiRef.current?.interrupt(agentUserId);
   }, []);
 
+  const manualSOS = useCallback(async (agentUserId: string, requestId?: string) => {
+    return requireReadyInstance(aiRef.current).manualSOS(agentUserId, requestId);
+  }, []);
+
+  const manualEOS = useCallback(async (agentUserId: string, requestId?: string) => {
+    return requireReadyInstance(aiRef.current).manualEOS(agentUserId, requestId);
+  }, []);
+
   const sendMessage = useCallback(async (agentUserId: string, text: string) => {
     await aiRef.current?.sendText(agentUserId, {
       messageType: ChatMessageType.TEXT,
@@ -222,6 +249,8 @@ function useConversationalAICore(config: UseConversationalAIConfig): UseConversa
     isConnected,
     error,
     interrupt,
+    manualSOS,
+    manualEOS,
     sendMessage,
     metrics,
     messageReceipt,

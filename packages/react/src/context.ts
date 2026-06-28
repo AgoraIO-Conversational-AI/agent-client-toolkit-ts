@@ -23,10 +23,21 @@ export function useAgoraVoiceAIInstance(): AgoraVoiceAI | null {
 export interface ConversationalAIContextValue {
   /** Send an interrupt signal to the agent. Requires RTM. */
   interrupt: (agentUserId: string) => Promise<void>;
+  /** Trigger a manual start-of-speech marker. Requires RTM. */
+  manualSOS: (agentUserId: string, requestId?: string) => Promise<string>;
+  /** Trigger a manual end-of-speech marker. Requires RTM. */
+  manualEOS: (agentUserId: string, requestId?: string) => Promise<string>;
   /** Send a plain-text message to the agent. Requires RTM. */
   sendMessage: (agentUserId: string, text: string) => Promise<void>;
   /** The underlying AgoraVoiceAI instance, or null if not yet initialized. */
   instance: AgoraVoiceAI | null;
+}
+
+function requireReadyInstance(instance: AgoraVoiceAI | null): AgoraVoiceAI {
+  if (!instance) {
+    throw new Error('[ConversationalAI] AgoraVoiceAI instance is not initialized yet.');
+  }
+  return instance;
 }
 
 /**
@@ -59,6 +70,20 @@ export function useConversationalAIContext(): ConversationalAIContextValue {
     [instance]
   );
 
+  const manualSOS = useCallback(
+    async (agentUserId: string, requestId?: string) => {
+      return requireReadyInstance(instance).manualSOS(agentUserId, requestId);
+    },
+    [instance]
+  );
+
+  const manualEOS = useCallback(
+    async (agentUserId: string, requestId?: string) => {
+      return requireReadyInstance(instance).manualEOS(agentUserId, requestId);
+    },
+    [instance]
+  );
+
   const sendMessage = useCallback(
     async (agentUserId: string, text: string) => {
       await instance?.sendText(agentUserId, {
@@ -71,5 +96,5 @@ export function useConversationalAIContext(): ConversationalAIContextValue {
     [instance]
   );
 
-  return { interrupt, sendMessage, instance };
+  return { interrupt, manualSOS, manualEOS, sendMessage, instance };
 }

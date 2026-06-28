@@ -43,6 +43,9 @@ export enum MessageType {
   MSG_INTERRUPTED = 'message.interrupt',
   MSG_METRICS = 'message.metrics',
   MSG_ERROR = 'message.error',
+  USER_MANUAL_SOS_RESULT = 'user.manual_sos.result',
+  USER_MANUAL_EOS_RESULT = 'user.manual_eos.result',
+  AGENT_MANUAL_EOS_RESULT = 'assistant.manual_eos.result',
   /** @deprecated */
   MSG_STATE = 'message.state',
   IMAGE_UPLOAD = 'image.upload',
@@ -262,6 +265,37 @@ export interface MessageError {
   turn_id: number;
   send_ts: number;
   [x: string]: unknown;
+}
+
+export interface UserManualEventPayload {
+  success: boolean;
+  requestId: string;
+  turnId: number | null;
+  errorMessage: string | null;
+}
+
+export interface UserManualSosEvent {
+  eventId: string;
+  timestamp: number;
+  payload: UserManualEventPayload;
+}
+
+export interface UserManualEosEvent {
+  eventId: string;
+  timestamp: number;
+  payload: UserManualEventPayload;
+}
+
+export interface AgentManualEosPayload {
+  reason: string;
+  maxDurationMs: number | null;
+  turnId: number | null;
+}
+
+export interface AgentManualEosEvent {
+  eventId: string;
+  timestamp: number;
+  payload: AgentManualEosPayload;
 }
 
 export interface RTMMessageEvent {

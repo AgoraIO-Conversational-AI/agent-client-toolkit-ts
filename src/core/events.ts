@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-function-type */
 import type {
+  AgentManualEosEvent,
   AgentMetric,
   AgentTranscription,
   ChatMessageType,
@@ -8,6 +9,8 @@ import type {
   ModuleError,
   StateChangeEvent,
   TranscriptHelperItem,
+  UserManualEosEvent,
+  UserManualSosEvent,
   UserTranscription,
 } from './types';
 
@@ -26,6 +29,9 @@ export enum AgoraVoiceAIEvents {
   MESSAGE_RECEIPT_UPDATED = 'message-receipt-updated',
   MESSAGE_ERROR = 'message-error',
   MESSAGE_SAL_STATUS = 'message-sal-status',
+  USER_MANUAL_SOS = 'user-manual-sos',
+  USER_MANUAL_EOS = 'user-manual-eos',
+  AGENT_MANUAL_EOS = 'agent-manual-eos',
 }
 
 /**
@@ -81,6 +87,21 @@ export interface AgoraVoiceAIEventHandlers {
     agentUserId: string,
     salStatus: MessageSalStatusData
   ) => void;
+  /**
+   * Fired when the server returns the result for a user-triggered manual SOS request.
+   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   */
+  [AgoraVoiceAIEvents.USER_MANUAL_SOS]: (agentUserId: string, event: UserManualSosEvent) => void;
+  /**
+   * Fired when the server returns the result for a user-triggered manual EOS request.
+   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   */
+  [AgoraVoiceAIEvents.USER_MANUAL_EOS]: (agentUserId: string, event: UserManualEosEvent) => void;
+  /**
+   * Fired when the server reports an automatic EOS in manual mode.
+   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   */
+  [AgoraVoiceAIEvents.AGENT_MANUAL_EOS]: (agentUserId: string, event: AgentManualEosEvent) => void;
 }
 
 // --- EventHelper ---
