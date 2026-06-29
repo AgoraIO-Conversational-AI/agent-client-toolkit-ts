@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AgoraRTC, {
   AgoraRTCProvider,
   type IAgoraRTCClient,
@@ -17,6 +17,7 @@ import {
   type ModuleError,
   type StateChangeEvent,
   type TranscriptHelperItem,
+  type Turn,
   type UserManualEosEvent,
   type UserManualSosEvent,
 } from 'agora-agent-client-toolkit';
@@ -44,6 +45,22 @@ type ConnectionState = 'connecting' | 'connected' | 'failed';
 type RemoteMediaType = 'audio' | 'video' | 'datachannel';
 type LogTone = 'default' | 'error' | 'progress' | 'success';
 type ModeLabel = 'VAD' | 'Semantic' | 'Manual';
+type ChatMode = 'text' | 'image';
+type AgentActivityState = {
+  listening: boolean | null;
+  thinking: boolean | null;
+  speaking: boolean | null;
+};
+
+type MessageLatencyInfo = {
+  turnId: number;
+  e2eLatencyMs: number;
+  rtcTransportMs: number;
+  algorithmProcessingMs: number;
+  asrTtlwMs: number;
+  llmTtftMs: number;
+  ttsTtfbMs: number;
+};
 
 const randomUid = () => String(Math.floor(100000 + Math.random() * 900000));
 
@@ -59,6 +76,10 @@ function createSessionIds() {
     userId,
     agentUserId,
   };
+}
+
+function createMessageUuid(): string {
+  return crypto.randomUUID();
 }
 
 const defaultConfig: DemoConfig = {
@@ -121,6 +142,26 @@ function readPackageVersion(raw: string): string {
 const DEMO_VERSION = readPackageVersion(demoPackageRaw);
 const TOOLKIT_VERSION = readPackageVersion(toolkitPackageRaw);
 
+function createAgentActivityState(): AgentActivityState {
+  return {
+    listening: null,
+    thinking: null,
+    speaking: null,
+  };
+}
+
+function buildLatencySummary(turn: Turn): MessageLatencyInfo {
+  return {
+    turnId: turn.turnId,
+    e2eLatencyMs: turn.e2eLatencyMs,
+    rtcTransportMs: turn.segmentedLatency.transportMs,
+    algorithmProcessingMs: turn.segmentedLatency.algorithmProcessingMs,
+    asrTtlwMs: turn.segmentedLatency.asrTtlwMs,
+    llmTtftMs: turn.segmentedLatency.llmTtftMs,
+    ttsTtfbMs: turn.segmentedLatency.ttsTtfbMs,
+  };
+}
+
 function isConfigReady(config: DemoConfig): boolean {
   return Boolean(config.appId.trim());
 }
@@ -160,6 +201,10 @@ function formatLogDetail(detail: unknown): string {
   if (detail === undefined || detail === null) return '';
   if (typeof detail === 'string') return ` ${detail}`;
   return ` ${JSON.stringify(detail)}`;
+}
+
+function activityBadgeClassName(value: boolean | null): string {
+  return value === true ? 'agent-activity-badge active' : 'agent-activity-badge';
 }
 
 function ModeControl({
@@ -371,17 +416,46 @@ function TranscriptPanel({
   config,
   status,
   transcript,
+  agentState,
+  agentActivity,
+  latencyByTurnId,
+  showLatencyMetrics,
+  onToggleLatencyMetrics,
 }: {
   config: DemoConfig;
   status: SessionStatus;
   transcript: TranscriptHelperItem<unknown>[];
+  agentState: StateChangeEvent | null;
+  agentActivity: AgentActivityState;
+  latencyByTurnId: Map<number, MessageLatencyInfo>;
+  showLatencyMetrics: boolean;
+  onToggleLatencyMetrics: () => void;
 }) {
+  const hasLatencyMetrics = latencyByTurnId.size > 0;
+
   return (
     <section className="transcript-panel panel">
       <div className="panel-title">
         <div>
           <h2>Transcript</h2>
           <p>{status === 'connected' ? config.channel : 'Ready for a generated web session'}</p>
+        </div>
+        <div className="agent-live-state" aria-label="Agent realtime state">
+          <span className="agent-state-pill">State {agentState?.state ?? 'idle'}</span>
+          <span className={activityBadgeClassName(agentActivity.listening)}>Listening</span>
+          <span className={activityBadgeClassName(agentActivity.thinking)}>Thinking</span>
+          <span className={activityBadgeClassName(agentActivity.speaking)}>Speaking</span>
+          {hasLatencyMetrics ? (
+            <button
+              className={showLatencyMetrics ? 'latency-toggle active' : 'latency-toggle'}
+              type="button"
+              aria-pressed={showLatencyMetrics}
+              onClick={onToggleLatencyMetrics}
+            >
+              Latency
+              <span className="latency-toggle-dot" aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -399,16 +473,43 @@ function TranscriptPanel({
                 : uid === config.agentUserId
                   ? 'agent'
                   : 'system';
+            const latencyMetrics =
+              showLatencyMetrics && speaker === 'agent'
+                ? latencyByTurnId.get(item.turn_id)
+                : undefined;
             return (
               <article key={`${uid}-${index}`} className={`transcript-item ${speaker}`}>
                 <strong>{speaker === 'user' ? 'User' : speaker === 'agent' ? 'Agent' : uid}</strong>
                 <p>{item.text || '...'}</p>
+                {latencyMetrics ? <ChatLatencyMetrics metrics={latencyMetrics} /> : null}
               </article>
             );
           })
         )}
       </div>
     </section>
+  );
+}
+
+function ChatLatencyMetrics({ metrics }: { metrics: MessageLatencyInfo }) {
+  const items = [
+    ['E2E', metrics.e2eLatencyMs],
+    ['RTC', metrics.rtcTransportMs],
+    ['ASR', metrics.asrTtlwMs],
+    ['LLM', metrics.llmTtftMs],
+    ['TTS', metrics.ttsTtfbMs],
+  ] as const;
+
+  return (
+    <div className="latency-metrics" aria-label={`Turn ${metrics.turnId} latency metrics`}>
+      <span className="latency-turn">#{metrics.turnId}</span>
+      {items.map(([label, value]) => (
+        <span key={label} className="latency-metric">
+          <span>{label}:</span>
+          <strong>{value}ms</strong>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -446,24 +547,28 @@ function LogPanel({ logs }: { logs: LogEntry[] }) {
 function ManualControls({
   config,
   status,
-  text,
-  onTextChange,
-  onSendText,
+  chatMode,
+  chatInput,
+  onChatModeChange,
+  onChatInputChange,
+  onSendChat,
   onInterrupt,
   onManualSOS,
   onManualEOS,
 }: {
   config: DemoConfig;
   status: SessionStatus;
-  text: string;
-  onTextChange?: (text: string) => void;
-  onSendText?: () => void;
+  chatMode: ChatMode;
+  chatInput: string;
+  onChatModeChange?: (mode: ChatMode) => void;
+  onChatInputChange?: (value: string) => void;
+  onSendChat?: () => void;
   onInterrupt?: () => void;
   onManualSOS?: () => void;
   onManualEOS?: () => void;
 }) {
   const connected = status === 'connected';
-  const canSendText = connected && Boolean(text.trim());
+  const canSendChat = connected && Boolean(chatInput.trim());
   const canManualSOS = connected && config.sosDetectionMode === 'manual';
   const canManualEOS = connected && config.eosDetectionMode === 'manual';
 
@@ -472,30 +577,71 @@ function ManualControls({
       <div className="panel-title">
         <div>
           <h2>Controls</h2>
-          <p>Manual turn messages and text input</p>
         </div>
       </div>
 
-      <label className="composer">
-        <span>Text</span>
-        <textarea
-          value={text}
-          onChange={(event) => onTextChange?.(event.target.value)}
-          disabled={!connected}
-        />
-      </label>
+      <div className="composer chat-composer">
+        <div className="composer-header">
+          <label htmlFor="chat-message">Chat</label>
+          <div className="segments chat-mode-segments" role="group" aria-label="Chat message type">
+            {(['text', 'image'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={chatMode === mode ? 'segment selected' : 'segment'}
+                onClick={() => {
+                  if (chatMode !== mode) {
+                    onChatModeChange?.(mode);
+                  }
+                }}
+                disabled={!connected}
+              >
+                {mode === 'text' ? 'Text' : 'Image'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="composer-row chat-input-row">
+          {chatMode === 'text' ? (
+            <textarea
+              id="chat-message"
+              value={chatInput}
+              onChange={(event) => onChatInputChange?.(event.target.value)}
+              disabled={!connected}
+            />
+          ) : (
+            <input
+              id="chat-message"
+              value={chatInput}
+              onChange={(event) => onChatInputChange?.(event.target.value)}
+              disabled={!connected}
+              placeholder="https://example.com/image.png"
+            />
+          )}
+          <button type="button" onClick={onSendChat} disabled={!canSendChat}>
+            Send
+          </button>
+        </div>
+      </div>
 
-      <div className="control-grid">
-        <button type="button" onClick={onSendText} disabled={!canSendText}>
-          Send text
-        </button>
+      <div className="turn-controls">
         <button type="button" onClick={onInterrupt} disabled={!connected}>
           Interrupt
         </button>
-        <button type="button" onClick={onManualSOS} disabled={!canManualSOS}>
+        <button
+          className="turn-action"
+          type="button"
+          onClick={onManualSOS}
+          disabled={!canManualSOS}
+        >
           SOS
         </button>
-        <button type="button" onClick={onManualEOS} disabled={!canManualEOS}>
+        <button
+          className="turn-action"
+          type="button"
+          onClick={onManualEOS}
+          disabled={!canManualEOS}
+        >
           EOS
         </button>
       </div>
@@ -508,7 +654,11 @@ function Workspace({
   status,
   logs,
   transcript = [],
-  text,
+  chatMode,
+  chatInput,
+  agentState,
+  agentActivity,
+  turns,
   setupDisabled,
   canStart,
   micMuted,
@@ -517,8 +667,9 @@ function Workspace({
   onStart,
   onStop,
   onToggleMic,
-  onTextChange,
-  onSendText,
+  onChatModeChange,
+  onChatInputChange,
+  onSendChat,
   onInterrupt,
   onManualSOS,
   onManualEOS,
@@ -527,7 +678,11 @@ function Workspace({
   status: SessionStatus;
   logs: LogEntry[];
   transcript?: TranscriptHelperItem<unknown>[];
-  text: string;
+  chatMode: ChatMode;
+  chatInput: string;
+  agentState?: StateChangeEvent | null;
+  agentActivity?: AgentActivityState;
+  turns?: Turn[];
   setupDisabled: boolean;
   canStart: boolean;
   micMuted?: boolean;
@@ -536,13 +691,18 @@ function Workspace({
   onStart?: () => void;
   onStop?: () => void | Promise<void>;
   onToggleMic?: () => void | Promise<void>;
-  onTextChange?: (text: string) => void;
-  onSendText?: () => void;
+  onChatModeChange?: (mode: ChatMode) => void;
+  onChatInputChange?: (value: string) => void;
+  onSendChat?: () => void;
   onInterrupt?: () => void;
   onManualSOS?: () => void;
   onManualEOS?: () => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showLatencyMetrics, setShowLatencyMetrics] = useState(true);
+  const latencyByTurnId = useMemo(() => {
+    return new Map((turns ?? []).map((turn) => [turn.turnId, buildLatencySummary(turn)]));
+  }, [turns]);
 
   useEffect(() => {
     if (!settingsOpen) return;
@@ -601,7 +761,16 @@ function Workspace({
 
       <div className="workspace-grid">
         <div className="center-stack">
-          <TranscriptPanel config={config} status={status} transcript={transcript} />
+          <TranscriptPanel
+            config={config}
+            status={status}
+            transcript={transcript}
+            agentState={agentState ?? null}
+            agentActivity={agentActivity ?? createAgentActivityState()}
+            latencyByTurnId={latencyByTurnId}
+            showLatencyMetrics={showLatencyMetrics}
+            onToggleLatencyMetrics={() => setShowLatencyMetrics((current) => !current)}
+          />
           <AgentPanel
             status={status}
             canStart={canStart}
@@ -618,9 +787,11 @@ function Workspace({
           <ManualControls
             config={config}
             status={status}
-            text={text}
-            onTextChange={onTextChange}
-            onSendText={onSendText}
+            chatMode={chatMode}
+            chatInput={chatInput}
+            onChatModeChange={onChatModeChange}
+            onChatInputChange={onChatInputChange}
+            onSendChat={onSendChat}
             onInterrupt={onInterrupt}
             onManualSOS={onManualSOS}
             onManualEOS={onManualEOS}
@@ -658,7 +829,11 @@ function Session({
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
   const [toolkitReady, setToolkitReady] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptHelperItem<unknown>[]>([]);
-  const [text, setText] = useState('Hello, can you hear me?');
+  const [agentState, setAgentState] = useState<StateChangeEvent | null>(null);
+  const [agentActivity, setAgentActivity] = useState<AgentActivityState>(createAgentActivityState);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [chatMode, setChatMode] = useState<ChatMode>('text');
+  const [chatInput, setChatInput] = useState('Hello, can you hear me?');
   const [micMuted, setMicMuted] = useState(false);
   const localAudioTrackRef = useRef<ILocalAudioTrack | null>(null);
   const micMonitorTimerRef = useRef<number | null>(null);
@@ -668,6 +843,11 @@ function Session({
 
   const addLog = useCallback((entry: Omit<LogEntry, 'time'>) => {
     setLogs((current) => [...current.slice(-99), { ...entry, time: Date.now() }]);
+  }, []);
+
+  const updateChatMode = useCallback((mode: ChatMode) => {
+    setChatMode(mode);
+    setChatInput('');
   }, []);
 
   const stopStartedAgent = useCallback(async () => {
@@ -796,8 +976,44 @@ function Session({
       const onTranscript = (items: TranscriptHelperItem<unknown>[]) => {
         setTranscript(items);
       };
-      const onState = (agentUserId: string, event: StateChangeEvent) =>
+      const onState = (agentUserId: string, event: StateChangeEvent) => {
+        setAgentState(event);
         addLog({ level: 'info', message: `Agent state from ${agentUserId}: ${event.state}` });
+      };
+      const onListening = (agentUserId: string, isListening: boolean) => {
+        setAgentActivity((current) => ({ ...current, listening: isListening }));
+        addLog({
+          level: 'info',
+          message: `Agent listening from ${agentUserId}: ${isListening}`,
+        });
+      };
+      const onThinking = (agentUserId: string, isThinking: boolean) => {
+        setAgentActivity((current) => ({ ...current, thinking: isThinking }));
+        addLog({
+          level: 'info',
+          message: `Agent thinking from ${agentUserId}: ${isThinking}`,
+        });
+      };
+      const onSpeaking = (agentUserId: string, isSpeaking: boolean) => {
+        setAgentActivity((current) => ({ ...current, speaking: isSpeaking }));
+        addLog({
+          level: 'info',
+          message: `Agent speaking from ${agentUserId}: ${isSpeaking}`,
+        });
+      };
+      const onTurnFinished = (agentUserId: string, turn: Turn) => {
+        setTurns((current) => {
+          const next = current.filter((item) => item.turnId !== turn.turnId);
+          next.push(turn);
+          next.sort((a, b) => a.turnId - b.turnId);
+          return next;
+        });
+        addLog({
+          level: 'info',
+          message: `Turn finished from ${agentUserId}: #${turn.turnId}`,
+          detail: { e2eLatencyMs: turn.e2eLatencyMs },
+        });
+      };
       const onError = (agentUserId: string, error: ModuleError) =>
         addLog({ level: 'error', message: `Agent error from ${agentUserId}`, detail: error });
       const onMetrics = (agentUserId: string, metrics: AgentMetric) =>
@@ -811,6 +1027,10 @@ function Session({
 
       ai.on(AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, onTranscript);
       ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, onState);
+      ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, onListening);
+      ai.on(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, onThinking);
+      ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, onSpeaking);
+      ai.on(AgoraVoiceAIEvents.AGENT_TURN_FINISHED, onTurnFinished);
       ai.on(AgoraVoiceAIEvents.AGENT_ERROR, onError);
       ai.on(AgoraVoiceAIEvents.AGENT_METRICS, onMetrics);
       ai.on(AgoraVoiceAIEvents.USER_MANUAL_SOS, onSos);
@@ -890,14 +1110,19 @@ function Session({
         status={connectionState}
         logs={logs}
         transcript={transcript}
-        text={text}
+        chatMode={chatMode}
+        chatInput={chatInput}
+        agentState={agentState}
+        agentActivity={agentActivity}
+        turns={turns}
         setupDisabled
         canStart={false}
         micMuted={micMuted}
         canToggleMic={false}
         onStop={disconnect}
         onToggleMic={toggleMic}
-        onTextChange={setText}
+        onChatModeChange={updateChatMode}
+        onChatInputChange={setChatInput}
       />
     );
   }
@@ -917,22 +1142,39 @@ function Session({
       status="connected"
       logs={logs}
       transcript={transcript}
-      text={text}
+      chatMode={chatMode}
+      chatInput={chatInput}
+      agentState={agentState}
+      agentActivity={agentActivity}
+      turns={turns}
       setupDisabled
       canStart={false}
       micMuted={micMuted}
       canToggleMic={toolkitReady}
       onStop={disconnect}
       onToggleMic={toggleMic}
-      onTextChange={setText}
-      onSendText={() =>
-        void safeRun('Text sent', async () => {
-          await aiRef.current?.sendText(config.agentUserId, {
-            messageType: ChatMessageType.TEXT,
-            priority: ChatMessagePriority.INTERRUPTED,
-            responseInterruptable: true,
-            text: text.trim(),
+      onChatModeChange={updateChatMode}
+      onChatInputChange={setChatInput}
+      onSendChat={() =>
+        void safeRun('Chat sent', async () => {
+          const value = chatInput.trim();
+          if (chatMode === 'text') {
+            await aiRef.current?.chat(config.agentUserId, {
+              messageType: ChatMessageType.TEXT,
+              priority: ChatMessagePriority.INTERRUPTED,
+              responseInterruptable: true,
+              text: value,
+            });
+            return { type: chatMode, text: value };
+          }
+
+          const uuid = createMessageUuid();
+          await aiRef.current?.chat(config.agentUserId, {
+            messageType: ChatMessageType.IMAGE,
+            uuid,
+            url: value,
           });
+          return { type: chatMode, uuid, url: value };
         })
       }
       onInterrupt={() =>
@@ -980,7 +1222,8 @@ export function App() {
         config={draftConfig}
         status="idle"
         logs={[]}
-        text="Hello, can you hear me?"
+        chatMode="text"
+        chatInput="Hello, can you hear me?"
         setupDisabled={false}
         canStart={isConfigReady(draftConfig)}
         onUpdateConfig={updateDraftConfig}
