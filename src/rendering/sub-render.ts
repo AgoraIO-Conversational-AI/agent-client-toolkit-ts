@@ -131,7 +131,6 @@ export class CovSubRenderController {
     turn_id: string | number;
     timestamp: number;
   } | null = null;
-  private _agentActivityTimestamps = new Map<string, number>();
   private _transcriptChunk: {
     index: number;
     data: AgentTranscription;
@@ -514,70 +513,52 @@ export class CovSubRenderController {
     const hasActivityState = listening !== null || thinking !== null || speaking !== null;
     const currentMsgTs = metadata.timestamp;
 
-    if (typeof message.state === 'undefined' || typeof message.turn_id === 'undefined') {
+    if (typeof message.state === 'undefined') {
       if (!hasActivityState) {
         return;
       }
 
-      const lastActivityTs = this._agentActivityTimestamps.get(metadata.publisher) ?? 0;
-      if (lastActivityTs >= currentMsgTs) {
-        this.callMessagePrint(
-          ELoggerType.debug,
-          'handleAgentStatus',
-          'ignore older activity state(timestamp)'
-        );
-        return;
-      }
-
-      this._agentActivityTimestamps.set(metadata.publisher, currentMsgTs);
       this.emitAgentActivity(metadata.publisher, listening, thinking, speaking);
       return;
     }
 
     const parsedTurnId = Number(message.turn_id);
-    const currentTurnId = Number.isFinite(parsedTurnId) ? parsedTurnId : -1;
-    const lastTurnId = Number(this._agentMessageState?.turn_id ?? -1);
+    const currentTurnId = Number.isFinite(parsedTurnId) ? parsedTurnId : 0;
+    const lastTurnId = Number(this._agentMessageState?.turn_id ?? 0);
     const lastTurnIdSafe = Number.isFinite(lastTurnId) ? lastTurnId : -1;
+    let shouldNotifyStateChange = true;
     if (lastTurnIdSafe > currentTurnId) {
       this.callMessagePrint(
         ELoggerType.debug,
         'handleAgentStatus',
         'ignore older message(turn_id)'
       );
-      return;
+      shouldNotifyStateChange = false;
     }
-    // check if message is older(by timestamp) than previous one, if so, skip
-    if (Number(this._agentMessageState?.timestamp ?? 0) >= currentMsgTs) {
+    if (shouldNotifyStateChange) {
       this.callMessagePrint(
         ELoggerType.debug,
-        'handleAgentStatus',
-        'ignore older message(timestamp)'
+        '>>> handleAgentStatus',
+        `pts: ${this._pts.pts}, uid: ${metadata.publisher}`,
+        `prev-state: ${this._agentMessageState?.state}, prev-turn_id: ${this._agentMessageState?.turn_id}, prev-timestamp: ${this._agentMessageState?.timestamp}`,
+        `current-state: ${metadata.stateChanged.state}, turn_id: ${metadata.stateChanged.turn_id}, timestamp: ${metadata.timestamp}`
       );
-      return;
+      // set current message state
+      this._agentMessageState = {
+        state: message.state,
+        turn_id: currentTurnId,
+        timestamp: currentMsgTs,
+      };
+      this.onAgentStateChanged?.(metadata.publisher, {
+        state: message.state,
+        turnID: currentTurnId,
+        timestamp: currentMsgTs,
+        reason: '',
+      });
     }
     if (hasActivityState) {
-      this._agentActivityTimestamps.set(metadata.publisher, currentMsgTs);
       this.emitAgentActivity(metadata.publisher, listening, thinking, speaking);
     }
-    this.callMessagePrint(
-      ELoggerType.debug,
-      '>>> handleAgentStatus',
-      `pts: ${this._pts.pts}, uid: ${metadata.publisher}`,
-      `prev-state: ${this._agentMessageState?.state}, prev-turn_id: ${this._agentMessageState?.turn_id}, prev-timestamp: ${this._agentMessageState?.timestamp}`,
-      `current-state: ${metadata.stateChanged.state}, turn_id: ${metadata.stateChanged.turn_id}, timestamp: ${metadata.timestamp}`
-    );
-    // set current message state
-    this._agentMessageState = {
-      state: message.state,
-      turn_id: message.turn_id,
-      timestamp: currentMsgTs,
-    };
-    this.onAgentStateChanged?.(metadata.publisher, {
-      state: message.state,
-      turnID: Number(message.turn_id),
-      timestamp: currentMsgTs,
-      reason: '',
-    });
   }
 
   private emitAgentActivity(
@@ -766,7 +747,6 @@ export class CovSubRenderController {
     // cleanup mode
     this._mode = TranscriptHelperMode.UNKNOWN;
     this._agentMessageState = null;
-    this._agentActivityTimestamps.clear();
     this._transcriptChunk = null;
   }
 }

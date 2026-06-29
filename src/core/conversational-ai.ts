@@ -1301,8 +1301,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
     );
     const stateChanged = presence.stateChanged;
     if (stateChanged) {
-      const hasAgentState =
-        typeof stateChanged.state === 'string' && typeof stateChanged.turn_id !== 'undefined';
+      const hasAgentState = typeof stateChanged.state === 'string';
       const hasActivityState =
         typeof stateChanged.listening !== 'undefined' ||
         typeof stateChanged.thinking !== 'undefined' ||

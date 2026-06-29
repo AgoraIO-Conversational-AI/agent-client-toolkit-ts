@@ -7,7 +7,7 @@
     "dev": "node server/dev.mjs",
     "dev:vite": "vite",
     "server": "node server/server.mjs",
-    "build": "tsc --noEmit",
+    "build": "pnpm -C ../.. --filter ../../packages/conversational-ai build && pnpm -C ../.. --filter ../../packages/react build && tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -210,7 +210,36 @@ describe('AgoraVoiceAI event handlers', () => {
     expect(listeningHandler).toHaveBeenCalledWith('agent-uid', false);
   });
 
-  it('RTM presence ignores older activity-only state callbacks', async () => {
+  it('RTM presence emits agent state with turnID 0 when turn_id is missing', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const stateHandler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, stateHandler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000001,
+      stateChanged: {
+        state: 'listening',
+      },
+    });
+
+    expect(stateHandler).toHaveBeenCalledTimes(1);
+    expect(stateHandler).toHaveBeenCalledWith('agent-uid', {
+      state: 'listening',
+      turnID: 0,
+      timestamp: 1710000000001,
+      reason: '',
+    });
+  });
+
+  it('RTM presence emits activity-only callbacks without timestamp filtering', async () => {
     const rtc = createMockRTCClient();
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
@@ -237,11 +266,12 @@ describe('AgoraVoiceAI event handlers', () => {
       },
     });
 
-    expect(listeningHandler).toHaveBeenCalledTimes(1);
-    expect(listeningHandler).toHaveBeenCalledWith('agent-uid', true);
+    expect(listeningHandler).toHaveBeenCalledTimes(2);
+    expect(listeningHandler).toHaveBeenNthCalledWith(1, 'agent-uid', true);
+    expect(listeningHandler).toHaveBeenNthCalledWith(2, 'agent-uid', false);
   });
 
-  it('RTM presence ignores activity callbacks from older agent state updates', async () => {
+  it('RTM presence emits activity callbacks even when state update is older', async () => {
     const rtc = createMockRTCClient();
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
@@ -281,8 +311,52 @@ describe('AgoraVoiceAI event handlers', () => {
       timestamp: 1710000000002,
       reason: '',
     });
-    expect(listeningHandler).toHaveBeenCalledTimes(1);
-    expect(listeningHandler).toHaveBeenCalledWith('agent-uid', false);
+    expect(listeningHandler).toHaveBeenCalledTimes(2);
+    expect(listeningHandler).toHaveBeenNthCalledWith(1, 'agent-uid', false);
+    expect(listeningHandler).toHaveBeenNthCalledWith(2, 'agent-uid', true);
+  });
+
+  it('RTM presence emits full-state activity after newer activity-only update', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const stateHandler = vi.fn();
+    const listeningHandler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, stateHandler);
+    ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, listeningHandler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000002,
+      stateChanged: {
+        listening: 'true',
+      },
+    });
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000001,
+      stateChanged: {
+        state: 'listening',
+        turn_id: '12',
+        listening: 'false',
+      },
+    });
+
+    expect(stateHandler).toHaveBeenCalledTimes(1);
+    expect(stateHandler).toHaveBeenCalledWith('agent-uid', {
+      state: 'listening',
+      turnID: 12,
+      timestamp: 1710000000001,
+      reason: '',
+    });
+    expect(listeningHandler).toHaveBeenCalledTimes(2);
+    expect(listeningHandler).toHaveBeenNthCalledWith(1, 'agent-uid', true);
+    expect(listeningHandler).toHaveBeenNthCalledWith(2, 'agent-uid', false);
   });
 
   it('RTM turn.finished emits AGENT_TURN_FINISHED with normalized latency metrics', async () => {
