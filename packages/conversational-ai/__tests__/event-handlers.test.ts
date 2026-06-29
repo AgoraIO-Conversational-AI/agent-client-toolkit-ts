@@ -143,6 +143,199 @@ describe('AgoraVoiceAI event handlers', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it('RTM presence emits agent activity state callbacks', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const stateHandler = vi.fn();
+    const listeningHandler = vi.fn();
+    const thinkingHandler = vi.fn();
+    const speakingHandler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, stateHandler);
+    ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, listeningHandler);
+    ai.on(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, thinkingHandler);
+    ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, speakingHandler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000000,
+      stateChanged: {
+        state: 'listening',
+        turn_id: '12',
+        listening: 'true',
+        thinking: 'false',
+        speaking: 'false',
+      },
+    });
+
+    expect(stateHandler).toHaveBeenCalledWith('agent-uid', {
+      state: 'listening',
+      turnID: 12,
+      timestamp: 1710000000000,
+      reason: '',
+    });
+    expect(listeningHandler).toHaveBeenCalledWith('agent-uid', true);
+    expect(thinkingHandler).toHaveBeenCalledWith('agent-uid', false);
+    expect(speakingHandler).toHaveBeenCalledWith('agent-uid', false);
+  });
+
+  it('RTM presence emits activity callbacks even without state and turn_id', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const stateHandler = vi.fn();
+    const listeningHandler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, stateHandler);
+    ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, listeningHandler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000001,
+      stateChanged: {
+        listening: 'false',
+      },
+    });
+
+    expect(stateHandler).not.toHaveBeenCalled();
+    expect(listeningHandler).toHaveBeenCalledWith('agent-uid', false);
+  });
+
+  it('RTM presence ignores older activity-only state callbacks', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const listeningHandler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, listeningHandler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000002,
+      stateChanged: {
+        listening: 'true',
+      },
+    });
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000001,
+      stateChanged: {
+        listening: 'false',
+      },
+    });
+
+    expect(listeningHandler).toHaveBeenCalledTimes(1);
+    expect(listeningHandler).toHaveBeenCalledWith('agent-uid', true);
+  });
+
+  it('RTM presence ignores activity callbacks from older agent state updates', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const stateHandler = vi.fn();
+    const listeningHandler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, stateHandler);
+    ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, listeningHandler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000002,
+      stateChanged: {
+        state: 'speaking',
+        turn_id: '13',
+        listening: 'false',
+      },
+    });
+    rtm.__emit(RTMEventType.PRESENCE, {
+      publisher: 'agent-uid',
+      timestamp: 1710000000001,
+      stateChanged: {
+        state: 'listening',
+        turn_id: '12',
+        listening: 'true',
+      },
+    });
+
+    expect(stateHandler).toHaveBeenCalledTimes(1);
+    expect(stateHandler).toHaveBeenCalledWith('agent-uid', {
+      state: 'speaking',
+      turnID: 13,
+      timestamp: 1710000000002,
+      reason: '',
+    });
+    expect(listeningHandler).toHaveBeenCalledTimes(1);
+    expect(listeningHandler).toHaveBeenCalledWith('agent-uid', false);
+  });
+
+  it('RTM turn.finished emits AGENT_TURN_FINISHED with normalized latency metrics', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmConfig: { rtmEngine: rtm as never },
+    });
+    const handler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_TURN_FINISHED, handler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.MESSAGE, {
+      publisher: 'agent-uid',
+      message: JSON.stringify({
+        event_type: MessageType.TURN_FINISHED,
+        payload: {
+          turn_id: 23,
+          agent_id: 'agent-runtime-id',
+          start: {
+            start_at: 1710000000123,
+          },
+          metrics: {
+            e2e_latency_ms: 1234,
+            segmented_latency_ms: [
+              { name: 'algorithm_processing', latency: 100 },
+              { name: 'asr_ttlw', latency: 200 },
+              { name: 'llm_ttft', latency: 300 },
+              { name: 'tts_ttfb', latency: 400 },
+              { name: 'transport', latency: 500 },
+            ],
+          },
+        },
+      }),
+    });
+
+    expect(handler).toHaveBeenCalledWith('agent-uid', {
+      agentId: 'agent-runtime-id',
+      turnId: 23,
+      timestamp: 1710000000123,
+      e2eLatencyMs: 1234,
+      segmentedLatency: {
+        algorithmProcessingMs: 100,
+        asrTtlwMs: 200,
+        llmTtftMs: 300,
+        ttsTtfbMs: 400,
+        transportMs: 500,
+      },
+    });
+  });
+
   it('RTM user.manual_sos.result emits USER_MANUAL_SOS', async () => {
     const rtc = createMockRTCClient();
     const rtm = createMockRTMClient();

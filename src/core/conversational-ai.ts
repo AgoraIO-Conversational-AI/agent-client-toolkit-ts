@@ -29,6 +29,7 @@ import {
   type StateChangeEvent,
   type TranscriptionBase,
   type ChatMessageBase,
+  type Turn,
   type AgoraVoiceAIState,
   type PresenceState,
   type RTMMessageEvent,
@@ -249,9 +250,22 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       enableLog: this.enableLog,
       onChatHistoryUpdated: safe(this.onChatHistoryUpdated.bind(this), 'onChatHistoryUpdated'),
       onAgentStateChanged: safe(this.onAgentStateChanged.bind(this), 'onAgentStateChanged'),
+      onAgentListeningChanged: safe(
+        this.onAgentListeningChanged.bind(this),
+        'onAgentListeningChanged'
+      ),
+      onAgentThinkingChanged: safe(
+        this.onAgentThinkingChanged.bind(this),
+        'onAgentThinkingChanged'
+      ),
+      onAgentSpeakingChanged: safe(
+        this.onAgentSpeakingChanged.bind(this),
+        'onAgentSpeakingChanged'
+      ),
       onAgentInterrupted: safe(this.onAgentInterrupted.bind(this), 'onAgentInterrupted'),
       onDebugLog: safe(this.onDebugLog.bind(this), 'onDebugLog'),
       onAgentMetrics: safe(this.onAgentMetrics.bind(this), 'onAgentMetrics'),
+      onAgentTurnFinished: safe(this.onAgentTurnFinished.bind(this), 'onAgentTurnFinished'),
       onAgentError: safe(this.onAgentError.bind(this), 'onAgentError'),
       onMessageReceipt: safe(this.onMessageReceiptUpdated.bind(this), 'onMessageReceipt'),
       onMessageError: safe(this.onMessageError.bind(this), 'onMessageError'),
@@ -851,6 +865,33 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
     );
     this.emit(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, agentUserId, event);
   }
+  private onAgentListeningChanged(agentUserId: string, isListening: boolean) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED}`,
+      agentUserId,
+      isListening
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, agentUserId, isListening);
+  }
+  private onAgentThinkingChanged(agentUserId: string, isThinking: boolean) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_THINKING_CHANGED}`,
+      agentUserId,
+      isThinking
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, agentUserId, isThinking);
+  }
+  private onAgentSpeakingChanged(agentUserId: string, isSpeaking: boolean) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED}`,
+      agentUserId,
+      isSpeaking
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, agentUserId, isSpeaking);
+  }
   private onAgentInterrupted(agentUserId: string, event: { turnID: number; timestamp: number }) {
     this.callMessagePrint(
       ELoggerType.debug,
@@ -871,6 +912,15 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       metrics
     );
     this.emit(AgoraVoiceAIEvents.AGENT_METRICS, agentUserId, metrics);
+  }
+  private onAgentTurnFinished(agentUserId: string, turn: Turn) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_TURN_FINISHED}`,
+      agentUserId,
+      turn
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_TURN_FINISHED, agentUserId, turn);
   }
   private onAgentError(agentUserId: string, error: ModuleError) {
     this.callMessagePrint(
@@ -1250,11 +1300,23 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       `Publisher: ${presence.publisher}`
     );
     const stateChanged = presence.stateChanged;
-    if (
-      stateChanged &&
-      typeof stateChanged.state === 'string' &&
-      typeof stateChanged.turn_id !== 'undefined'
-    ) {
+    if (stateChanged) {
+      const hasAgentState =
+        typeof stateChanged.state === 'string' && typeof stateChanged.turn_id !== 'undefined';
+      const hasActivityState =
+        typeof stateChanged.listening !== 'undefined' ||
+        typeof stateChanged.thinking !== 'undefined' ||
+        typeof stateChanged.speaking !== 'undefined';
+
+      if (!hasAgentState && !hasActivityState) {
+        this.callMessagePrint(
+          ELoggerType.debug,
+          `>>> [traceID:${traceId}] ${RTMEventType.PRESENCE}`,
+          'No supported state change detected, skipping handling presence event'
+        );
+        return;
+      }
+
       this.callMessagePrint(
         ELoggerType.debug,
         `>>> [traceID:${traceId}] ${RTMEventType.PRESENCE}`,
@@ -1263,8 +1325,11 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       this.covSubRenderController.handleAgentStatus({
         ...presence,
         stateChanged: {
-          state: stateChanged.state as AgentState,
-          turn_id: String(stateChanged.turn_id),
+          ...stateChanged,
+          state:
+            typeof stateChanged.state === 'string' ? (stateChanged.state as AgentState) : undefined,
+          turn_id:
+            typeof stateChanged.turn_id !== 'undefined' ? String(stateChanged.turn_id) : undefined,
         },
       } as PresenceState);
     } else {

@@ -42,6 +42,7 @@ export enum MessageType {
   AGENT_TRANSCRIPTION = 'assistant.transcription',
   MSG_INTERRUPTED = 'message.interrupt',
   MSG_METRICS = 'message.metrics',
+  TURN_FINISHED = 'turn.finished',
   MSG_ERROR = 'message.error',
   USER_MANUAL_SOS_RESULT = 'user.manual_sos.result',
   USER_MANUAL_EOS_RESULT = 'user.manual_eos.result',
@@ -118,6 +119,22 @@ export type StateChangeEvent = {
   turnID: number;
   timestamp: number;
   reason: string;
+};
+
+export type SegmentedLatency = {
+  algorithmProcessingMs: number;
+  asrTtlwMs: number;
+  llmTtftMs: number;
+  transportMs: number;
+  ttsTtfbMs: number;
+};
+
+export type Turn = {
+  agentId: string;
+  turnId: number;
+  timestamp: number;
+  e2eLatencyMs: number;
+  segmentedLatency: SegmentedLatency;
 };
 
 export interface HelperRTMEvents {
@@ -257,6 +274,25 @@ export interface MessageMetrics {
   send_ts: number;
 }
 
+export interface TurnFinishedMessage {
+  object?: MessageType.TURN_FINISHED;
+  event_type?: MessageType.TURN_FINISHED;
+  payload?: {
+    turn_id?: number;
+    agent_id?: string;
+    start?: {
+      start_at?: number;
+    };
+    metrics?: {
+      e2e_latency_ms?: number;
+      segmented_latency_ms?: Array<{
+        name?: string;
+        latency?: number;
+      }>;
+    };
+  };
+}
+
 export interface MessageError {
   object: MessageType.MSG_ERROR;
   module: ModuleType;
@@ -324,8 +360,12 @@ export type RTMStatusEvent = Record<string, unknown>;
 
 export interface PresenceState extends RTMPresenceEvent {
   stateChanged: {
-    state: AgentState;
-    turn_id: string;
+    state?: AgentState;
+    turn_id?: string;
+    listening?: unknown;
+    thinking?: unknown;
+    speaking?: unknown;
+    [key: string]: unknown;
   };
 }
 
