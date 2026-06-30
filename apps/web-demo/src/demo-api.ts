@@ -79,7 +79,10 @@ export async function generateToken(
   return readTokenFromResponse(body);
 }
 
-export async function startAgent({ config, remoteRtcUid }: StartAgentParams): Promise<StartAgentResult> {
+export async function startAgent({
+  config,
+  remoteRtcUid,
+}: StartAgentParams): Promise<StartAgentResult> {
   const response = await fetch(demoApiUrl('/agents/join'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -124,8 +127,6 @@ export async function stopAgent(config: DemoConfig, agentId: string): Promise<vo
 
   if (!response.ok) {
     const body = await readJsonResponse(response);
-    throw new Error(
-      `Stop agent failed: httpCode=${response.status}, body=${JSON.stringify(body)}`
-    );
+    throw new Error(`Stop agent failed: httpCode=${response.status}, body=${JSON.stringify(body)}`);
   }
 }
