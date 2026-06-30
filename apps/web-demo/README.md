@@ -16,7 +16,7 @@ Channel, user ID, and agent user ID are generated on each start, following the K
 ## Run
 
 ```bash
-cd /Users/zhangwei/Documents/agora_toolkit/agent-client-toolkit-ts
+pnpm install
 pnpm --filter agora-agent-client-toolkit build
 pnpm --filter agora-agent-client-toolkit-react build
 pnpm --filter agora-agent-client-toolkit-web-demo dev
