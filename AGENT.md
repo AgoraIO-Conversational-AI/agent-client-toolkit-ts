@@ -108,7 +108,7 @@ Release strategy:
 - If fixes are needed before final publish, publish the next RC.
 - If a problem is found after the final version is published, do not overwrite or delete that version; publish a new version such as `2.9.1`.
 
-Publishing is handled by GitHub Actions through npm, not Rehoboam. Both packages must use the same version:
+Publishing is handled by the GitHub Actions `publish` job with npm provenance. Both packages must use the same version:
 
 - `agora-agent-client-toolkit`
 - `agora-agent-client-toolkit-react`
