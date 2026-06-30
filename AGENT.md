@@ -97,3 +97,20 @@ React hook test files live in `packages/react/__tests__/`:
 - `standalone-hooks.test.tsx` — `useTranscript`, `useAgentState`, `useAgentError`, `useAgentMetrics`
 
 Functional validation against real agent traffic still requires Agora sandbox credentials.
+
+## npm Release
+
+Release strategy:
+
+- Do not use the final release version as the first validation artifact.
+- Package and publish an RC first, for example `2.9.0-rc.1`.
+- Validate the RC through web demo or clean-app consumption.
+- If fixes are needed before final publish, publish the next RC.
+- If a problem is found after the final version is published, do not overwrite or delete that version; publish a new version such as `2.9.1`.
+
+Publishing is handled by GitHub Actions through npm, not Rehoboam. Both packages must use the same version:
+
+- `agora-agent-client-toolkit`
+- `agora-agent-client-toolkit-react`
+
+Tag push publishes both packages and creates a GitHub Release. RC versions publish with npm dist-tag `rc`; final versions publish with `latest`.

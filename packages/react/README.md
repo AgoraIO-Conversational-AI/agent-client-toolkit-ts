@@ -55,12 +55,15 @@ Alternatively, use `useConversationalAI` directly for a batteries-included hook:
 ```tsx
 function VoiceAI() {
   const config = useMemo(() => ({ channel: 'my-channel' }), []);
-  const { transcript, agentState, isConnected, interrupt } = useConversationalAI(config);
+  const { transcript, agentState, isConnected, interrupt, manualSOS, manualEOS } =
+    useConversationalAI(config);
 
   return (
     <div>
       <p>Agent: {agentState} | Connected: {String(isConnected)}</p>
       <button onClick={() => interrupt('AGENT_UID')}>Interrupt</button>
+      <button onClick={() => manualSOS('AGENT_UID')}>SOS</button>
+      <button onClick={() => manualEOS('AGENT_UID')}>EOS</button>
       <ul>
         {transcript.map((t) => <li key={t.uid}>{t.text}</li>)}
       </ul>
@@ -98,8 +101,18 @@ Provider component that manages the `AgoraVoiceAI` lifecycle and exposes the AI 
 Flagship hook — initializes and manages the full `AgoraVoiceAI` lifecycle (init, subscribe, unsubscribe, destroy). Must be rendered inside an `AgoraRTCProvider`.
 
 ```typescript
-const { transcript, agentState, isConnected, error, interrupt, sendMessage, metrics, messageReceipt } =
-  useConversationalAI(config);
+const {
+  transcript,
+  agentState,
+  isConnected,
+  error,
+  interrupt,
+  manualSOS,
+  manualEOS,
+  sendMessage,
+  metrics,
+  messageReceipt,
+} = useConversationalAI(config);
 ```
 
 `config` extends `AgoraVoiceAIConfig` (omitting `rtcEngine`, which comes from the provider) and adds `channel: string`.
@@ -113,6 +126,8 @@ const { transcript, agentState, isConnected, error, interrupt, sendMessage, metr
 | `isConnected` | `boolean` | `true` after `subscribeMessage` succeeds. |
 | `error` | `ModuleError \| null` | Most recent error from `AGENT_ERROR`. Null until an error occurs. |
 | `interrupt` | `(agentUserId: string) => Promise<void>` | Send an interrupt signal to the agent. Requires `rtmConfig`. |
+| `manualSOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual start-of-speech and return the request ID. Requires `rtmConfig`. |
+| `manualEOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual end-of-speech and return the request ID. Requires `rtmConfig`. |
 | `sendMessage` | `(agentUserId: string, text: string) => Promise<void>` | Send a text message to the agent. Requires `rtmConfig`. |
 | `metrics` | `AgentMetric \| null` | Latest metric from `AGENT_METRICS` (module type, name, value, timestamp). |
 | `messageReceipt` | `MessageReceipt \| null` | Latest delivery receipt from `MESSAGE_RECEIPT_UPDATED`. |
@@ -185,22 +200,24 @@ function StatusBar() {
 
 ### `useConversationalAIContext()`
 
-Access SDK controls from any component inside a `ConversationalAIProvider`, without having to re-pass config. Returns `sendMessage`, `interrupt`, and the underlying `instance`.
+Access SDK controls from any component inside a `ConversationalAIProvider`, without having to re-pass config. Returns `sendMessage`, `interrupt`, `manualSOS`, `manualEOS`, and the underlying `instance`.
 
 ```tsx
 function ChatInput({ agentUid }: { agentUid: string }) {
-  const { sendMessage, interrupt } = useConversationalAIContext();
+  const { sendMessage, interrupt, manualSOS, manualEOS } = useConversationalAIContext();
 
   return (
     <div>
       <button onClick={() => interrupt(agentUid)}>Interrupt</button>
+      <button onClick={() => manualSOS(agentUid)}>SOS</button>
+      <button onClick={() => manualEOS(agentUid)}>EOS</button>
       <button onClick={() => sendMessage(agentUid, 'hello')}>Send</button>
     </div>
   );
 }
 ```
 
-Use this instead of prop-drilling `interrupt`/`sendMessage` down from the component that called `useConversationalAI`. For transcript and state data, prefer the dedicated standalone hooks.
+Use this instead of prop-drilling controls down from the component that called `useConversationalAI`. For transcript and state data, prefer the dedicated standalone hooks.
 
 ## RTC primitives
 

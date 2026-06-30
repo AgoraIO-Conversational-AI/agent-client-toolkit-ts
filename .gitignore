@@ -36,9 +36,11 @@ bower_components
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
+build/
 
 # Dependency directories
 node_modules/
+.pnpm-store/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
@@ -46,6 +48,7 @@ web_modules/
 
 # TypeScript cache
 *.tsbuildinfo
+__pycache__/
 
 # Optional npm cache directory
 .npm
@@ -61,6 +64,11 @@ web_modules/
 
 # Output of 'npm pack'
 *.tgz
+
+# Local container packaging experiments
+.dockerignore
+Containerfile
+apps/web-demo/deploy/
 
 # Yarn Integrity file
 .yarn-integrity
