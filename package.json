@@ -1,5 +1,5 @@
 {
-  "name": "agora-agent-client-toolkit",
+  "name": "agent-client-toolkit-ts",
   "version": "2.9.0-rc.1",
   "private": true,
   "description": "Client-side SDK for adding Agora Conversational AI Engine features.",

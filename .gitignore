@@ -36,6 +36,7 @@ bower_components
 
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
+build/
 
 # Dependency directories
 node_modules/
@@ -63,6 +64,11 @@ __pycache__/
 
 # Output of 'npm pack'
 *.tgz
+
+# Local container packaging experiments
+.dockerignore
+Containerfile
+apps/web-demo/deploy/
 
 # Yarn Integrity file
 .yarn-integrity

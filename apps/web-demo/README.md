@@ -15,6 +15,8 @@ Channel, user ID, and agent user ID are generated on each start, following the K
 
 ## Run
 
+Run from the repository root:
+
 ```bash
 pnpm install
 pnpm --filter agora-agent-client-toolkit build
