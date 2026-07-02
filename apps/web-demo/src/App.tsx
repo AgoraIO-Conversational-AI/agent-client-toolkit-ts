@@ -351,21 +351,40 @@ function AgentPanel({
 function SettingsSheet({
   open,
   config,
+  agentId,
   disabled,
   onClose,
   onUpdate,
+  onCopyAgentId,
 }: {
   open: boolean;
   config: DemoConfig;
+  agentId?: string | null;
   disabled: boolean;
   onClose: () => void;
   onUpdate?: (key: keyof DemoConfig, value: string | number) => void;
+  onCopyAgentId?: () => boolean | Promise<boolean>;
 }) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
   if (!open) return null;
 
   const controlsDisabled = disabled || !onUpdate;
+  const showAgentId = Boolean(agentId);
   const update = (key: keyof DemoConfig, value: string | number) => {
     if (!controlsDisabled) onUpdate?.(key, value);
+  };
+  const copyStatusMessage =
+    copyStatus === 'success'
+      ? 'Agent ID copied'
+      : copyStatus === 'error'
+        ? 'Agent ID copy failed'
+        : '';
+
+  const copyCurrentAgentId = async () => {
+    const copied = (await onCopyAgentId?.()) ?? false;
+    setCopyStatus(copied ? 'success' : 'error');
+    window.setTimeout(() => setCopyStatus('idle'), 1800);
   };
 
   return (
@@ -394,6 +413,20 @@ function SettingsSheet({
         </div>
 
         <div className="turn-settings">
+          {showAgentId ? (
+            <div className="settings-agent-id-row">
+              <span>Agent ID</span>
+              <code title={agentId ?? undefined}>{agentId}</code>
+              <button type="button" onClick={() => void copyCurrentAgentId()}>
+                Copy
+              </button>
+              {copyStatusMessage ? (
+                <small className={copyStatus === 'success' ? 'copy-hint success' : 'copy-hint error'}>
+                  {copyStatusMessage}
+                </small>
+              ) : null}
+            </div>
+          ) : null}
           <ModeControl
             label="SOS"
             value={config.sosDetectionMode}
@@ -438,7 +471,9 @@ function TranscriptPanel({
       <div className="panel-title">
         <div>
           <h2>Transcript</h2>
-          <p>{status === 'connected' ? config.channel : 'Ready for a generated web session'}</p>
+          <div className="session-meta">
+            <p>{status === 'connected' ? config.channel : 'Ready for a generated web session'}</p>
+          </div>
         </div>
         <div className="agent-live-state" aria-label="Agent realtime state">
           <span className="agent-state-pill">State {agentState?.state ?? 'idle'}</span>
@@ -654,6 +689,7 @@ function Workspace({
   status,
   logs,
   transcript = [],
+  agentId,
   chatMode,
   chatInput,
   agentState,
@@ -667,6 +703,7 @@ function Workspace({
   onStart,
   onStop,
   onToggleMic,
+  onCopyAgentId,
   onChatModeChange,
   onChatInputChange,
   onSendChat,
@@ -678,6 +715,7 @@ function Workspace({
   status: SessionStatus;
   logs: LogEntry[];
   transcript?: TranscriptHelperItem<unknown>[];
+  agentId?: string | null;
   chatMode: ChatMode;
   chatInput: string;
   agentState?: StateChangeEvent | null;
@@ -691,6 +729,7 @@ function Workspace({
   onStart?: () => void;
   onStop?: () => void | Promise<void>;
   onToggleMic?: () => void | Promise<void>;
+  onCopyAgentId?: () => boolean | Promise<boolean>;
   onChatModeChange?: (mode: ChatMode) => void;
   onChatInputChange?: (value: string) => void;
   onSendChat?: () => void;
@@ -802,9 +841,11 @@ function Workspace({
       <SettingsSheet
         open={settingsOpen}
         config={config}
+        agentId={agentId}
         disabled={setupDisabled}
         onClose={() => setSettingsOpen(false)}
         onUpdate={onUpdateConfig}
+        onCopyAgentId={onCopyAgentId}
       />
     </main>
   );
@@ -832,6 +873,7 @@ function Session({
   const [agentState, setAgentState] = useState<StateChangeEvent | null>(null);
   const [agentActivity, setAgentActivity] = useState<AgentActivityState>(createAgentActivityState);
   const [turns, setTurns] = useState<Turn[]>([]);
+  const [agentId, setAgentId] = useState<string | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>('text');
   const [chatInput, setChatInput] = useState('Hello, can you hear me?');
   const [micMuted, setMicMuted] = useState(false);
@@ -853,6 +895,7 @@ function Session({
   const stopStartedAgent = useCallback(async () => {
     const agentId = agentIdRef.current;
     agentIdRef.current = null;
+    setAgentId(null);
 
     if (agentId) {
       await stopAgent(config, agentId);
@@ -884,6 +927,7 @@ function Session({
     const ai = aiRef.current;
     aiRef.current = null;
     setToolkitReady(false);
+    setAgentId(null);
     if (ai) {
       try {
         if (AgoraVoiceAI.getInstance() === ai) {
@@ -918,6 +962,23 @@ function Session({
     setMicMuted(nextMuted);
     addLog({ level: 'info', message: nextMuted ? 'Microphone muted' : 'Microphone unmuted' });
   }, [addLog, micMuted]);
+
+  const copyAgentId = useCallback(async () => {
+    const currentAgentId = agentIdRef.current;
+    if (!currentAgentId) {
+      addLog({ level: 'error', message: 'Copy agent ID failed', detail: 'Agent ID is not available' });
+      return false;
+    }
+
+    try {
+      await navigator.clipboard.writeText(currentAgentId);
+      addLog({ level: 'info', message: 'Agent ID copied successfully' });
+      return true;
+    } catch (error) {
+      addLog({ level: 'error', message: 'Copy agent ID failed', detail: String(error) });
+      return false;
+    }
+  }, [addLog]);
 
   const startMicMonitor = useCallback(
     (audioTrack: ILocalAudioTrack) => {
@@ -1052,6 +1113,7 @@ function Session({
       }
 
       agentIdRef.current = result.agentId;
+      setAgentId(result.agentId);
       setConnectionState('connected');
       addLog({ level: 'info', message: 'Agent started successfully', detail: result });
     },
@@ -1110,6 +1172,7 @@ function Session({
         status={connectionState}
         logs={logs}
         transcript={transcript}
+        agentId={agentId}
         chatMode={chatMode}
         chatInput={chatInput}
         agentState={agentState}
@@ -1121,6 +1184,7 @@ function Session({
         canToggleMic={false}
         onStop={disconnect}
         onToggleMic={toggleMic}
+        onCopyAgentId={copyAgentId}
         onChatModeChange={updateChatMode}
         onChatInputChange={setChatInput}
       />
@@ -1142,6 +1206,7 @@ function Session({
       status="connected"
       logs={logs}
       transcript={transcript}
+      agentId={agentId}
       chatMode={chatMode}
       chatInput={chatInput}
       agentState={agentState}
@@ -1153,6 +1218,7 @@ function Session({
       canToggleMic={toolkitReady}
       onStop={disconnect}
       onToggleMic={toggleMic}
+      onCopyAgentId={copyAgentId}
       onChatModeChange={updateChatMode}
       onChatInputChange={setChatInput}
       onSendChat={() =>

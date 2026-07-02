@@ -144,8 +144,8 @@ function VoiceSession() {
 
 | Package                                                                      | Version | Description                        |
 | ---------------------------------------------------------------------------- | ------- | ---------------------------------- |
-| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md) | 1.2.0   | Core SDK — vanilla JS / TypeScript |
-| [`agora-agent-client-toolkit-react`](./packages/react/README.md)       | 1.2.0   | React hooks                        |
+| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md) | 2.9.0-rc.1 | Core SDK — vanilla JS / TypeScript |
+| [`agora-agent-client-toolkit-react`](./packages/react/README.md)       | 2.9.0-rc.1 | React hooks                        |
 
 Full API reference, configuration options, and events are in each package's README.
 
@@ -157,7 +157,7 @@ RTM is optional. Transcripts and agent state work without it — just omit `rtmC
 const ai = await AgoraVoiceAI.init({ rtcEngine: rtcClient });
 ```
 
-Three methods require RTM and throw if called without it: `sendText`, `sendImage`, and `interrupt`.
+RTM-backed methods throw without `rtmConfig`: `sendText`, `sendImage`, `interrupt`, `manualSOS`, and `manualEOS`.
 
 ## Repository layout
 
