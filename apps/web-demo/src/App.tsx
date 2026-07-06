@@ -22,12 +22,15 @@ import {
   type UserManualSosEvent,
 } from 'agora-agent-client-toolkit';
 import {
+  getDemoServerConfig,
   generateToken,
   startAgent,
   stopAgent,
   type DemoConfig,
   type TurnDetectionMode,
 } from './demo-api';
+import { applyServerAppId, dropPersistedAppId } from './app-config';
+import { getTranscriptScrollKey, scrollElementToBottom } from './transcript-scroll';
 import demoPackageRaw from '../package.json?raw';
 import toolkitPackageRaw from '../../../packages/conversational-ai/package.json?raw';
 
@@ -83,7 +86,7 @@ function createMessageUuid(): string {
 }
 
 const defaultConfig: DemoConfig = {
-  appId: import.meta.env.VITE_AGORA_APP_ID ?? '',
+  appId: '',
   ...createSessionIds(),
   sosDetectionMode: 'vad',
   eosDetectionMode: 'semantic',
@@ -98,6 +101,7 @@ function normalizeTurnMode(value: unknown, fallback: TurnDetectionMode): TurnDet
 function normalizeConfig(config: DemoConfig): DemoConfig {
   return {
     ...defaultConfig,
+    appId: config.appId.trim() || defaultConfig.appId,
     sosDetectionMode: normalizeTurnMode(config.sosDetectionMode, defaultConfig.sosDetectionMode),
     eosDetectionMode: normalizeTurnMode(config.eosDetectionMode, defaultConfig.eosDetectionMode),
     ...createSessionIds(),
@@ -108,7 +112,10 @@ function loadConfig(): DemoConfig {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return defaultConfig;
   try {
-    return normalizeConfig({ ...defaultConfig, ...(JSON.parse(stored) as Partial<DemoConfig>) });
+    return normalizeConfig({
+      ...defaultConfig,
+      ...dropPersistedAppId(JSON.parse(stored) as Partial<DemoConfig>),
+    });
   } catch {
     return defaultConfig;
   }
@@ -465,6 +472,12 @@ function TranscriptPanel({
   onToggleLatencyMetrics: () => void;
 }) {
   const hasLatencyMetrics = latencyByTurnId.size > 0;
+  const transcriptStreamRef = useRef<HTMLDivElement | null>(null);
+  const transcriptScrollKey = useMemo(() => getTranscriptScrollKey(transcript), [transcript]);
+
+  useEffect(() => {
+    scrollElementToBottom(transcriptStreamRef.current);
+  }, [transcriptScrollKey]);
 
   return (
     <section className="transcript-panel panel">
@@ -494,7 +507,7 @@ function TranscriptPanel({
         </div>
       </div>
 
-      <div className="transcript-stream">
+      <div className="transcript-stream" ref={transcriptStreamRef}>
         {transcript.length === 0 ? (
           <div className="empty-transcript">
             <h3>{status === 'idle' ? 'Session standby' : 'Waiting for conversation'}</h3>
@@ -1035,7 +1048,7 @@ function Session({
       aiRef.current = ai;
 
       const onTranscript = (items: TranscriptHelperItem<unknown>[]) => {
-        setTranscript(items);
+        setTranscript([...items]);
       };
       const onState = (agentUserId: string, event: StateChangeEvent) => {
         setAgentState(event);
@@ -1261,6 +1274,20 @@ export function App() {
   const [config, setConfig] = useState<DemoConfig | null>(null);
   const rtcRef = useRef<IAgoraRTCClient | null>(null);
   const rtmRef = useRef<RTMClient | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDemoServerConfig()
+      .then(({ appId }) => {
+        if (cancelled || !appId.trim()) return;
+        setDraftConfig((current) => applyServerAppId(current, appId));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onConnect = () => {
     const nextConfig = normalizeConfig(draftConfig);
