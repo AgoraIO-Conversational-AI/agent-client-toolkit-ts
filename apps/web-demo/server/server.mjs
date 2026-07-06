@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DEFAULT_EXPIRE_SECONDS = 60 * 60 * 24;
+import { generateConvoAiToken } from './token.mjs';
+
 const DEFAULT_CONVOAI_BASE_URL = 'https://api-test.agora.io/api/conversational-ai-agent/v2/projects';
 const DEFAULT_AGENT_GREETING_MESSAGE = 'hello man, I am an AI robot, I can do anything for you';
 const DEFAULT_AGENT_FAILURE_MESSAGE = "Sorry, I don't know how to answer your question";
@@ -60,32 +61,42 @@ function readEnv(name, fallbackName, defaultValue = '') {
 const config = {
   host: readEnv('WEB_DEMO_SERVER_HOST', undefined, '127.0.0.1'),
   port: Number(readEnv('WEB_DEMO_SERVER_PORT', undefined, '8788')),
-  appId: readEnv('AGORA_APP_ID', 'VITE_AGORA_APP_ID'),
-  appCertificate: readEnv('AGORA_APP_CERTIFICATE', 'VITE_AGORA_APP_CERTIFICATE'),
-  tokenServerUrl: readEnv('AGORA_TOKEN_SERVER_URL', 'VITE_AGORA_TOKEN_SERVER_URL'),
-  convoAiBaseUrl: readEnv('CONVOAI_BASE_URL', 'VITE_CONVOAI_BASE_URL', DEFAULT_CONVOAI_BASE_URL),
-  asrVendor: readEnv('AGORA_ASR_VENDOR', 'VITE_AGORA_ASR_VENDOR', 'soniox'),
-  asrApiKey: readEnv('AGORA_ASR_API_KEY', 'VITE_AGORA_ASR_API_KEY'),
-  asrModel: readEnv('AGORA_ASR_MODEL', 'VITE_AGORA_ASR_MODEL', 'stt-rt-preview-v2'),
+  appId: readEnv('AGORA_APP_ID'),
+  appCertificate: readEnv('AGORA_APP_CERTIFICATE'),
+  convoAiBaseUrl: readEnv('CONVOAI_BASE_URL', undefined, DEFAULT_CONVOAI_BASE_URL),
+  asrVendor: readEnv('AGORA_ASR_VENDOR', undefined, 'soniox'),
+  asrApiKey: readEnv('AGORA_ASR_API_KEY'),
+  asrModel: readEnv('AGORA_ASR_MODEL', undefined, 'stt-rt-preview-v2'),
   llmUrl: readEnv(
     'AGORA_LLM_URL',
-    'VITE_AGORA_LLM_URL',
+    undefined,
     'https://api.groq.com/openai/v1/chat/completions'
   ),
-  llmApiKey: readEnv('AGORA_LLM_API_KEY', 'VITE_AGORA_LLM_API_KEY'),
-  llmModel: readEnv('AGORA_LLM_MODEL', 'VITE_AGORA_LLM_MODEL', 'llama-3.3-70b-versatile'),
-  ttsVendor: readEnv('AGORA_TTS_VENDOR', 'VITE_AGORA_TTS_VENDOR', 'elevenlabs'),
-  ttsKey: readEnv('AGORA_TTS_KEY', 'VITE_AGORA_TTS_KEY'),
-  ttsModelId: readEnv('AGORA_TTS_MODEL_ID', 'VITE_AGORA_TTS_MODEL_ID', 'eleven_flash_v2_5'),
-  ttsVoiceId: readEnv('AGORA_TTS_VOICE_ID', 'VITE_AGORA_TTS_VOICE_ID'),
-  ttsSampleRate: Number(readEnv('AGORA_TTS_SAMPLE_RATE', 'VITE_AGORA_TTS_SAMPLE_RATE', '44100')),
+  llmApiKey: readEnv('AGORA_LLM_API_KEY'),
+  llmModel: readEnv('AGORA_LLM_MODEL', undefined, 'llama-3.3-70b-versatile'),
+  ttsVendor: readEnv('AGORA_TTS_VENDOR', undefined, 'elevenlabs'),
+  ttsKey: readEnv('AGORA_TTS_KEY'),
+  ttsModelId: readEnv('AGORA_TTS_MODEL_ID', undefined, 'eleven_flash_v2_5'),
+  ttsVoiceId: readEnv('AGORA_TTS_VOICE_ID'),
+  ttsSampleRate: Number(readEnv('AGORA_TTS_SAMPLE_RATE', undefined, '44100')),
 };
 
 function assertConfigured() {
   const missing = [
-    ['VITE_AGORA_APP_ID or AGORA_APP_ID', config.appId],
-    ['AGORA_TOKEN_SERVER_URL', config.tokenServerUrl],
+    ['AGORA_APP_ID', config.appId],
+    ['AGORA_APP_CERTIFICATE', config.appCertificate],
     ['CONVOAI_BASE_URL', config.convoAiBaseUrl],
+  ]
+    .filter(([, value]) => !String(value || '').trim())
+    .map(([name]) => name);
+
+  if (missing.length) {
+    throw new Error(`Missing web demo server env: ${missing.join(', ')}`);
+  }
+}
+
+function assertAgentConfigured() {
+  const missing = [
     ['AGORA_ASR_VENDOR', config.asrVendor],
     ['AGORA_ASR_API_KEY', config.asrApiKey],
     ['AGORA_ASR_MODEL', config.asrModel],
@@ -101,7 +112,7 @@ function assertConfigured() {
     .map(([name]) => name);
 
   if (missing.length) {
-    throw new Error(`Missing web demo server env: ${missing.join(', ')}`);
+    throw new DemoHttpError(400, `Missing web demo agent env: ${missing.join(', ')}`);
   }
 }
 
@@ -163,18 +174,6 @@ function requireTurnMode(body, field) {
   return value;
 }
 
-function readTokenTypes(body) {
-  if (!Array.isArray(body.tokenTypes) || body.tokenTypes.length === 0) {
-    return [1, 2];
-  }
-
-  const values = body.tokenTypes.map((value) => Number(value));
-  if (values.some((value) => value !== 1 && value !== 2)) {
-    throw new DemoHttpError(400, 'tokenTypes must contain only 1 or 2');
-  }
-  return values;
-}
-
 async function readJsonResponse(response) {
   const text = await response.text();
   if (!text) return {};
@@ -186,56 +185,13 @@ async function readJsonResponse(response) {
   }
 }
 
-function readTokenFromResponse(body) {
-  if (body && typeof body === 'object') {
-    if (typeof body.token === 'string') {
-      return body.token;
-    }
-
-    const data = body.data;
-    if (data && typeof data === 'object' && typeof data.token === 'string') {
-      return data.token;
-    }
-  }
-
-  throw new DemoHttpError(502, 'Token response does not include token');
-}
-
-async function requestToken(channel, uid, tokenTypes = [1, 2]) {
-  const requestBody = {
+function requestToken(channel, uid) {
+  return generateConvoAiToken({
     appId: config.appId,
+    appCertificate: config.appCertificate,
     channelName: channel,
-    expire: DEFAULT_EXPIRE_SECONDS,
-    src: 'Web',
-    ts: Date.now().toString(),
     uid,
-  };
-
-  if (config.appCertificate.trim()) {
-    requestBody.appCertificate = config.appCertificate.trim();
-  }
-
-  if (tokenTypes.length === 1) {
-    requestBody.type = tokenTypes[0];
-  } else {
-    requestBody.types = tokenTypes;
-  }
-
-  const response = await fetch(`${trimTrailingSlash(config.tokenServerUrl)}/v2/token/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody),
   });
-  const body = await readJsonResponse(response);
-
-  if (!response.ok || (typeof body.code === 'number' && body.code !== 0)) {
-    throw new DemoHttpError(502, 'Generate token failed', {
-      httpCode: response.status,
-      body,
-    });
-  }
-
-  return readTokenFromResponse(body);
 }
 
 function buildTurnModeConfig(kind, mode) {
@@ -335,6 +291,8 @@ function buildStartAgentPayload({ channel, remoteRtcUid, agentUserId, agentToken
 }
 
 async function joinAgent(body) {
+  assertAgentConfigured();
+
   const channel = requireString(body, 'channel');
   const remoteRtcUid = requireString(body, 'remoteRtcUid');
   const agentUserId = requireString(body, 'agentUserId');
@@ -410,11 +368,16 @@ async function handleRequest(request, response) {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/demo-api/config') {
+    sendJson(response, 200, { appId: config.appId });
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/demo-api/token') {
     const body = await readJsonRequest(request);
     const channel = requireString(body, 'channel');
     const uid = requireString(body, 'uid');
-    const token = await requestToken(channel, uid, readTokenTypes(body));
+    const token = requestToken(channel, uid);
     sendJson(response, 200, { token });
     return;
   }
