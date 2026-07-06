@@ -9,8 +9,6 @@ export type DemoConfig = {
   eosDetectionMode: TurnDetectionMode;
 };
 
-type TokenType = 1 | 2;
-
 type StartAgentParams = {
   config: DemoConfig;
   remoteRtcUid: string;
@@ -20,6 +18,10 @@ const DEMO_API_BASE_URL = '/demo-api';
 
 export type StartAgentResult = {
   agentId: string;
+};
+
+export type DemoServerConfig = {
+  appId: string;
 };
 
 function trimTrailingSlash(value: string): string {
@@ -56,8 +58,7 @@ function demoApiUrl(path: string): string {
 
 export async function generateToken(
   config: DemoConfig,
-  uid: string,
-  tokenTypes: TokenType[] = [1, 2]
+  uid: string
 ): Promise<string> {
   const response = await fetch(demoApiUrl('/token'), {
     method: 'POST',
@@ -65,7 +66,6 @@ export async function generateToken(
     body: JSON.stringify({
       channel: config.channel,
       uid,
-      tokenTypes,
     }),
   });
   const body = await readJsonResponse(response);
@@ -77,6 +77,28 @@ export async function generateToken(
   }
 
   return readTokenFromResponse(body);
+}
+
+export async function getDemoServerConfig(): Promise<DemoServerConfig> {
+  const response = await fetch(demoApiUrl('/config'));
+  const body = await readJsonResponse(response);
+
+  if (!response.ok) {
+    throw new Error(
+      `Read demo server config failed: httpCode=${response.status}, body=${JSON.stringify(body)}`
+    );
+  }
+
+  if (!body || typeof body !== 'object') {
+    throw new Error(`Demo server config response is not an object: ${JSON.stringify(body)}`);
+  }
+
+  const appId = (body as Record<string, unknown>).appId;
+  if (typeof appId !== 'string') {
+    throw new Error(`Demo server config response does not include appId: ${JSON.stringify(body)}`);
+  }
+
+  return { appId };
 }
 
 export async function startAgent({
