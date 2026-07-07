@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 
-DEFAULT_TARGET_ORIGIN = "https://api-test.agora.io"
+DEFAULT_TARGET_ORIGIN = "https://api.agora.io"
 DEFAULT_ALLOWED_ORIGIN = "*"
 HOP_BY_HOP_HEADERS = {
     "connection",
@@ -31,7 +31,7 @@ def trim_trailing_slash(value: str) -> str:
 def make_handler(target_origin: str, allowed_origin: str):
     parsed_target = urlparse(trim_trailing_slash(target_origin))
     if parsed_target.scheme != "https" or not parsed_target.netloc:
-        raise ValueError("target_origin must be an https origin, for example https://api-test.agora.io")
+        raise ValueError("target_origin must be an https origin, for example https://api.agora.io")
 
     class ConvoAIProxyHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"

@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import http from 'node:http';
 import test from 'node:test';
 
 const SERVER_URL = 'http://127.0.0.1:18789';
+const CONVOAI_UPSTREAM_PORT = 18790;
+const CONVOAI_UPSTREAM_URL = `http://127.0.0.1:${CONVOAI_UPSTREAM_PORT}`;
 
 function waitForServer(url, timeoutMs = 5000) {
   const startedAt = Date.now();
@@ -33,20 +36,62 @@ function waitForServer(url, timeoutMs = 5000) {
 
 function startServer() {
   const env = {
-    ...process.env,
+    PATH: process.env.PATH,
     WEB_DEMO_SERVER_PORT: '18789',
+    CONVOAI_BASE_URL: `${CONVOAI_UPSTREAM_URL}/api/conversational-ai-agent/v2/projects`,
     AGORA_APP_ID: '0123456789abcdef0123456789abcdef',
     AGORA_APP_CERTIFICATE: 'fedcba9876543210fedcba9876543210',
-    AGORA_ASR_API_KEY: '',
-    AGORA_LLM_API_KEY: '',
-    AGORA_TTS_KEY: '',
-    AGORA_TTS_VOICE_ID: '',
+    AGORA_LLM_API_KEY: 'llm-key',
+    AGORA_TTS_KEY: 'tts-key',
+    AGORA_TTS_VOICE_ID: 'voice-id',
   };
 
   return spawn(process.execPath, ['apps/web-demo/server/server.mjs'], {
     cwd: new URL('../../../', import.meta.url),
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
+function startConvoAiUpstream() {
+  const requests = [];
+  const server = http.createServer((request, response) => {
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      body += chunk;
+    });
+    request.on('end', () => {
+      requests.push({
+        method: request.method,
+        url: request.url,
+        headers: request.headers,
+        body: body ? JSON.parse(body) : {},
+      });
+
+      response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({ agent_id: 'agent-web-1' }));
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(CONVOAI_UPSTREAM_PORT, '127.0.0.1', () => {
+      server.off('error', reject);
+      resolve({ server, requests });
+    });
+  });
+}
+
+function stopHttpServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
   });
 }
 
@@ -59,7 +104,8 @@ function stopServer(child) {
   return new Promise((resolve) => child.once('exit', resolve));
 }
 
-test('server starts with only Agora credentials so dev can load the UI', async () => {
+test('server starts and posts join payload without client ASR override', async () => {
+  const upstream = await startConvoAiUpstream();
   const child = startServer();
   let stderr = '';
   child.stderr.on('data', (chunk) => {
@@ -88,12 +134,43 @@ test('server starts with only Agora credentials so dev can load the UI', async (
     });
     const joinBody = await joinResponse.json();
 
-    assert.equal(joinResponse.status, 400);
-    assert.match(joinBody.error, /Missing web demo agent env/);
-    assert.match(joinBody.error, /AGORA_ASR_API_KEY/);
+    assert.equal(joinResponse.status, 200);
+    assert.deepEqual(joinBody, { agentId: 'agent-web-1' });
+
+    assert.equal(upstream.requests.length, 1);
+    const upstreamRequest = upstream.requests[0];
+    assert.equal(upstreamRequest.method, 'POST');
+    assert.equal(
+      upstreamRequest.url,
+      '/api/conversational-ai-agent/v2/projects/0123456789abcdef0123456789abcdef/join'
+    );
+    assert.match(upstreamRequest.headers.authorization, /^agora token=.+/);
+
+    const payload = upstreamRequest.body;
+    assert.equal(payload.preset, undefined);
+    assert.equal(payload.properties.asr, undefined);
+    assert.equal(payload.properties.llm.api_key, 'llm-key');
+    assert.equal(payload.properties.tts.params.key, 'tts-key');
+    assert.deepEqual(payload.properties.advanced_features, {
+      enable_sal: false,
+      enable_rtm: true,
+    });
+    assert.deepEqual(payload.properties.parameters, {
+      enable_metrics: true,
+      enable_error_message: true,
+      data_channel: 'rtm',
+    });
+    assert.deepEqual(payload.properties.turn_detection, {
+      mode: 'default',
+      config: {
+        start_of_speech: { mode: 'vad' },
+        end_of_speech: { mode: 'semantic' },
+      },
+    });
   } catch (error) {
     assert.fail(`${error.message}\n${stderr}`);
   } finally {
     await stopServer(child);
+    await stopHttpServer(upstream.server);
   }
 });

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { generateConvoAiToken } from './token.mjs';
 
-const DEFAULT_CONVOAI_BASE_URL = 'https://api-test.agora.io/api/conversational-ai-agent/v2/projects';
+const DEFAULT_CONVOAI_BASE_URL = 'https://api.agora.io/api/conversational-ai-agent/v2/projects';
 const DEFAULT_AGENT_GREETING_MESSAGE = 'hello man, I am an AI robot, I can do anything for you';
 const DEFAULT_AGENT_FAILURE_MESSAGE = "Sorry, I don't know how to answer your question";
 const VALID_TURN_MODES = new Set(['vad', 'semantic', 'manual']);
@@ -64,14 +64,7 @@ const config = {
   appId: readEnv('AGORA_APP_ID'),
   appCertificate: readEnv('AGORA_APP_CERTIFICATE'),
   convoAiBaseUrl: readEnv('CONVOAI_BASE_URL', undefined, DEFAULT_CONVOAI_BASE_URL),
-  asrVendor: readEnv('AGORA_ASR_VENDOR', undefined, 'soniox'),
-  asrApiKey: readEnv('AGORA_ASR_API_KEY'),
-  asrModel: readEnv('AGORA_ASR_MODEL', undefined, 'stt-rt-preview-v2'),
-  llmUrl: readEnv(
-    'AGORA_LLM_URL',
-    undefined,
-    'https://api.groq.com/openai/v1/chat/completions'
-  ),
+  llmUrl: readEnv('AGORA_LLM_URL', undefined, 'https://api.groq.com/openai/v1/chat/completions'),
   llmApiKey: readEnv('AGORA_LLM_API_KEY'),
   llmModel: readEnv('AGORA_LLM_MODEL', undefined, 'llama-3.3-70b-versatile'),
   ttsVendor: readEnv('AGORA_TTS_VENDOR', undefined, 'elevenlabs'),
@@ -97,9 +90,6 @@ function assertConfigured() {
 
 function assertAgentConfigured() {
   const missing = [
-    ['AGORA_ASR_VENDOR', config.asrVendor],
-    ['AGORA_ASR_API_KEY', config.asrApiKey],
-    ['AGORA_ASR_MODEL', config.asrModel],
     ['AGORA_LLM_URL', config.llmUrl],
     ['AGORA_LLM_API_KEY', config.llmApiKey],
     ['AGORA_LLM_MODEL', config.llmModel],
@@ -194,38 +184,19 @@ function requestToken(channel, uid) {
   });
 }
 
-function buildTurnModeConfig(kind, mode) {
+function buildTurnModeConfig(mode) {
   const value = { mode };
-
-  if (kind === 'sos' && mode === 'vad') {
-    value.vad_config = {
-      interrupt_duration_ms: 500,
-      speaking_interrupt_duration_ms: 300,
-      prefix_padding_ms: 800,
-    };
-  } else if (kind === 'sos' && mode === 'semantic') {
-    value.semantic_config = {
-      interrupt_duration_ms: 200,
-      prefix_padding_ms: 920,
-      speaking_interrupt_duration_ms: 350,
-      ignored_words: ['uh-huh', 'okay'],
-    };
-  } else if (kind === 'eos' && mode === 'vad') {
-    value.vad_config = {
-      silence_duration_ms: 660,
-    };
-  } else if (kind === 'eos' && mode === 'semantic') {
-    value.semantic_config = {
-      silence_duration_ms: 480,
-      max_wait_ms: 1200,
-      pause_state_enabled: false,
-    };
-  }
-
   return value;
 }
 
-function buildStartAgentPayload({ channel, remoteRtcUid, agentUserId, agentToken, sosMode, eosMode }) {
+function buildStartAgentPayload({
+  channel,
+  remoteRtcUid,
+  agentUserId,
+  agentToken,
+  sosMode,
+  eosMode,
+}) {
   return {
     name: channel,
     properties: {
@@ -236,17 +207,8 @@ function buildStartAgentPayload({ channel, remoteRtcUid, agentUserId, agentToken
       enable_string_uid: false,
       idle_timeout: 120,
       advanced_features: {
-        enable_aivad: false,
-        enable_bhvs: true,
         enable_sal: false,
         enable_rtm: true,
-      },
-      asr: {
-        vendor: config.asrVendor,
-        params: {
-          api_key: config.asrApiKey,
-          model: config.asrModel,
-        },
       },
       tts: {
         vendor: config.ttsVendor,
@@ -269,21 +231,13 @@ function buildStartAgentPayload({ channel, remoteRtcUid, agentUserId, agentToken
       parameters: {
         enable_metrics: true,
         enable_error_message: true,
-        output_audio_codec: 'OPUSFB',
-        audio_scenario: 'default',
-        transcript: {
-          enable: true,
-          protocol_version: 'v2',
-          enable_words: false,
-        },
         data_channel: 'rtm',
       },
       turn_detection: {
         mode: 'default',
         config: {
-          speech_threshold: 0.6,
-          start_of_speech: buildTurnModeConfig('sos', sosMode),
-          end_of_speech: buildTurnModeConfig('eos', eosMode),
+          start_of_speech: buildTurnModeConfig(sosMode),
+          end_of_speech: buildTurnModeConfig(eosMode),
         },
       },
     },
