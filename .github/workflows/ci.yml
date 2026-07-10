@@ -123,8 +123,13 @@ jobs:
       - name: Set up node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Use trusted-publishing capable npm
+        run: |
+          npm install --global npm@^11.5.1
+          npm --version
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -165,11 +170,12 @@ jobs:
             echo "Skipping $PACKAGE_NAME@$LOCAL_VERSION (already published)"
           else
             echo "Publishing $PACKAGE_NAME@$LOCAL_VERSION with dist-tag ${{ steps.release.outputs.npm_tag }}"
-            pnpm publish --provenance --access public --tag "${{ steps.release.outputs.npm_tag }}" --no-git-checks
+            PACK_DIR="$RUNNER_TEMP/npm-packages"
+            mkdir -p "$PACK_DIR"
+            TARBALL=$(pnpm pack --pack-destination "$PACK_DIR" --json | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).filename));")
+            npm publish "$TARBALL" --provenance --access public --tag "${{ steps.release.outputs.npm_tag }}"
           fi
         working-directory: packages/conversational-ai
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish react to npm
         run: |
@@ -180,11 +186,12 @@ jobs:
             echo "Skipping $PACKAGE_NAME@$LOCAL_VERSION (already published)"
           else
             echo "Publishing $PACKAGE_NAME@$LOCAL_VERSION with dist-tag ${{ steps.release.outputs.npm_tag }}"
-            pnpm publish --provenance --access public --tag "${{ steps.release.outputs.npm_tag }}" --no-git-checks
+            PACK_DIR="$RUNNER_TEMP/npm-packages"
+            mkdir -p "$PACK_DIR"
+            TARBALL=$(pnpm pack --pack-destination "$PACK_DIR" --json | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).filename));")
+            npm publish "$TARBALL" --provenance --access public --tag "${{ steps.release.outputs.npm_tag }}"
           fi
         working-directory: packages/react
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
