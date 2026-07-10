@@ -56,10 +56,7 @@ function demoApiUrl(path: string): string {
   return `${trimTrailingSlash(DEMO_API_BASE_URL)}${path}`;
 }
 
-export async function generateToken(
-  config: DemoConfig,
-  uid: string
-): Promise<string> {
+export async function generateToken(config: DemoConfig, uid: string): Promise<string> {
   const response = await fetch(demoApiUrl('/token'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

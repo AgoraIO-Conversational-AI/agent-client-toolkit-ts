@@ -4,12 +4,8 @@ import { getTranscriptScrollKey, scrollElementToBottom } from './transcript-scro
 
 describe('transcript scroll helpers', () => {
   it('changes the scroll key when the latest streamed text changes', () => {
-    const firstKey = getTranscriptScrollKey([
-      { uid: 'agent', turn_id: 1, text: 'Hello' },
-    ]);
-    const nextKey = getTranscriptScrollKey([
-      { uid: 'agent', turn_id: 1, text: 'Hello there' },
-    ]);
+    const firstKey = getTranscriptScrollKey([{ uid: 'agent', turn_id: 1, text: 'Hello' }]);
+    const nextKey = getTranscriptScrollKey([{ uid: 'agent', turn_id: 1, text: 'Hello there' }]);
 
     expect(nextKey).not.toBe(firstKey);
   });

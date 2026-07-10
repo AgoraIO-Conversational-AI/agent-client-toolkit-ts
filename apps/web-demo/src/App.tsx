@@ -428,7 +428,9 @@ function SettingsSheet({
                 Copy
               </button>
               {copyStatusMessage ? (
-                <small className={copyStatus === 'success' ? 'copy-hint success' : 'copy-hint error'}>
+                <small
+                  className={copyStatus === 'success' ? 'copy-hint success' : 'copy-hint error'}
+                >
                   {copyStatusMessage}
                 </small>
               ) : null}
@@ -979,7 +981,11 @@ function Session({
   const copyAgentId = useCallback(async () => {
     const currentAgentId = agentIdRef.current;
     if (!currentAgentId) {
-      addLog({ level: 'error', message: 'Copy agent ID failed', detail: 'Agent ID is not available' });
+      addLog({
+        level: 'error',
+        message: 'Copy agent ID failed',
+        detail: 'Agent ID is not available',
+      });
       return false;
     }
 
