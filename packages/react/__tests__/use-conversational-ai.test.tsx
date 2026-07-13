@@ -10,6 +10,8 @@ const mockUnsubscribe = vi.fn();
 const mockDestroy = vi.fn();
 const mockSubscribeMessage = vi.fn();
 const mockInterrupt = vi.fn();
+const mockManualSOS = vi.fn();
+const mockManualEOS = vi.fn();
 const mockSendText = vi.fn();
 
 let mockInstance: Record<string, unknown>;
@@ -22,6 +24,8 @@ function createMockInstance() {
     destroy: mockDestroy,
     subscribeMessage: mockSubscribeMessage,
     interrupt: mockInterrupt,
+    manualSOS: mockManualSOS,
+    manualEOS: mockManualEOS,
     sendText: mockSendText,
   };
 }
@@ -111,9 +115,7 @@ describe('useConversationalAI', () => {
     const { unmount } = renderConversationalAI({ channel: 'test-channel' });
 
     await waitFor(() => {
-      expect(mockInit).toHaveBeenCalledWith(
-        expect.objectContaining({ channel: 'test-channel' })
-      );
+      expect(mockInit).toHaveBeenCalledWith(expect.objectContaining({ channel: 'test-channel' }));
     });
     expect(mockSubscribeMessage).toHaveBeenCalledWith('test-channel');
 
@@ -271,7 +273,11 @@ describe('useConversationalAI', () => {
   // --- Cancelled init (unmount before init resolves) ---
   it('does not set state when unmounted before init resolves', async () => {
     let resolveInit!: (val: unknown) => void;
-    mockInit.mockReturnValue(new Promise((resolve) => { resolveInit = resolve; }));
+    mockInit.mockReturnValue(
+      new Promise((resolve) => {
+        resolveInit = resolve;
+      })
+    );
 
     const { result, unmount } = renderConversationalAI({ channel: 'test-channel' });
 
@@ -298,5 +304,30 @@ describe('useConversationalAI', () => {
 
     expect(typeof result.current.interrupt).toBe('function');
     expect(typeof result.current.sendMessage).toBe('function');
+  });
+
+  it('exposes manualSOS and manualEOS callbacks', async () => {
+    mockManualSOS.mockResolvedValue('sos-req-001');
+    mockManualEOS.mockResolvedValue('eos-req-001');
+    const { result } = renderConversationalAI({ channel: 'test-channel' });
+
+    await waitFor(() => {
+      expect(mockSubscribeMessage).toHaveBeenCalled();
+    });
+
+    await expect(result.current.manualSOS('agent-uid', 'sos-req-001')).resolves.toBe('sos-req-001');
+    await expect(result.current.manualEOS('agent-uid', 'eos-req-001')).resolves.toBe('eos-req-001');
+    expect(mockManualSOS).toHaveBeenCalledWith('agent-uid', 'sos-req-001');
+    expect(mockManualEOS).toHaveBeenCalledWith('agent-uid', 'eos-req-001');
+  });
+
+  it('manualSOS and manualEOS reject before the AI instance is ready', async () => {
+    mockInit.mockReturnValue(new Promise(() => undefined));
+    const { result } = renderConversationalAI({ channel: 'test-channel' });
+
+    await expect(result.current.manualSOS('agent-uid')).rejects.toThrow('not initialized yet');
+    await expect(result.current.manualEOS('agent-uid')).rejects.toThrow('not initialized yet');
+    expect(mockManualSOS).not.toHaveBeenCalled();
+    expect(mockManualEOS).not.toHaveBeenCalled();
   });
 });

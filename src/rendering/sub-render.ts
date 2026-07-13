@@ -7,6 +7,8 @@ import type {
   MessageSalStatusData,
   PresenceState,
   RTMMessageEvent,
+  Turn,
+  TurnFinishedMessage,
   TranscriptHelperItem,
   TranscriptionBase,
   UserTranscription,
@@ -29,8 +31,80 @@ const SELF_USER_ID = 0;
 
 const DEFAULT_INTERVAL = 200; // milliseconds
 const DEFAULT_CHUNK_INTERVAL = 100; // milliseconds, 10 char/s
+const TURN_FINISHED_SEGMENT_KEYS = [
+  'algorithm_processing',
+  'asr_ttlw',
+  'llm_ttft',
+  'transport',
+  'tts_ttfb',
+] as const;
 
 const formatLog = factoryFormatLog({ tag: TAG });
+
+function parseBooleanState(value: unknown): boolean | null {
+  if (value === true || value === 'true') {
+    return true;
+  }
+  if (value === false || value === 'false') {
+    return false;
+  }
+  return null;
+}
+
+function numberOrZero(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function parseTurnFinishedMessage(message: unknown): Turn | null {
+  if (!message || typeof message !== 'object') {
+    return null;
+  }
+
+  const raw = message as TurnFinishedMessage & {
+    turn_id?: number;
+    agent_id?: string;
+    start?: {
+      start_at?: number;
+    };
+    metrics?: {
+      e2e_latency_ms?: number;
+      segmented_latency_ms?: Array<{
+        name?: string;
+        latency?: number;
+      }>;
+    };
+  };
+  const messageType = raw.event_type ?? raw.object;
+  if (messageType !== MessageType.TURN_FINISHED) {
+    return null;
+  }
+
+  const payload = raw.payload ?? raw;
+  if (typeof payload.agent_id !== 'string' || typeof payload.turn_id !== 'number') {
+    return null;
+  }
+
+  const segmentMap = new Map<string, number>();
+  for (const segment of payload.metrics?.segmented_latency_ms ?? []) {
+    if (segment?.name) {
+      segmentMap.set(segment.name, numberOrZero(segment.latency));
+    }
+  }
+
+  return {
+    agentId: payload.agent_id,
+    turnId: payload.turn_id,
+    timestamp: numberOrZero(payload.start?.start_at),
+    e2eLatencyMs: numberOrZero(payload.metrics?.e2e_latency_ms),
+    segmentedLatency: {
+      algorithmProcessingMs: segmentMap.get(TURN_FINISHED_SEGMENT_KEYS[0]) ?? 0,
+      asrTtlwMs: segmentMap.get(TURN_FINISHED_SEGMENT_KEYS[1]) ?? 0,
+      llmTtftMs: segmentMap.get(TURN_FINISHED_SEGMENT_KEYS[2]) ?? 0,
+      transportMs: segmentMap.get(TURN_FINISHED_SEGMENT_KEYS[3]) ?? 0,
+      ttsTtfbMs: segmentMap.get(TURN_FINISHED_SEGMENT_KEYS[4]) ?? 0,
+    },
+  };
+}
 
 /**
  * CovSubRenderController is a service that manages the transcript messages from RTM messages.
@@ -78,11 +152,23 @@ export class CovSubRenderController {
   public onAgentStateChanged:
     | AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_STATE_CHANGED]
     | null;
+  public onAgentListeningChanged:
+    | AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED]
+    | null = null;
+  public onAgentThinkingChanged:
+    | AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_THINKING_CHANGED]
+    | null = null;
+  public onAgentSpeakingChanged:
+    | AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED]
+    | null = null;
   public onAgentInterrupted:
     | AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_INTERRUPTED]
     | null = null;
   public onDebugLog: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.DEBUG_LOG] | null = null;
   public onAgentMetrics: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_METRICS] | null = null;
+  public onAgentTurnFinished:
+    | AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_TURN_FINISHED]
+    | null = null;
   public onAgentError: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_ERROR] | null = null;
   public onMessageReceipt:
     | AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.MESSAGE_RECEIPT_UPDATED]
@@ -99,9 +185,13 @@ export class CovSubRenderController {
       enableLog?: boolean;
       onChatHistoryUpdated?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.TRANSCRIPT_UPDATED];
       onAgentStateChanged?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_STATE_CHANGED];
+      onAgentListeningChanged?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED];
+      onAgentThinkingChanged?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_THINKING_CHANGED];
+      onAgentSpeakingChanged?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED];
       onAgentInterrupted?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_INTERRUPTED];
       onDebugLog?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.DEBUG_LOG];
       onAgentMetrics?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_METRICS];
+      onAgentTurnFinished?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_TURN_FINISHED];
       onAgentError?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.AGENT_ERROR];
       onMessageReceipt?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.MESSAGE_RECEIPT_UPDATED];
       onMessageError?: AgoraVoiceAIEventHandlers[AgoraVoiceAIEvents.MESSAGE_ERROR];
@@ -127,9 +217,13 @@ export class CovSubRenderController {
 
     this.onChatHistoryUpdated = options.onChatHistoryUpdated ?? null;
     this.onAgentStateChanged = options.onAgentStateChanged ?? null;
+    this.onAgentListeningChanged = options.onAgentListeningChanged ?? null;
+    this.onAgentThinkingChanged = options.onAgentThinkingChanged ?? null;
+    this.onAgentSpeakingChanged = options.onAgentSpeakingChanged ?? null;
     this.onAgentInterrupted = options.onAgentInterrupted ?? null;
     this.onDebugLog = options.onDebugLog ?? null;
     this.onAgentMetrics = options.onAgentMetrics ?? null;
+    this.onAgentTurnFinished = options.onAgentTurnFinished ?? null;
     this.onAgentError = options.onAgentError ?? null;
     this.onMessageReceipt = options.onMessageReceipt ?? null;
     this.onMessageError = options.onMessageError ?? null;
@@ -413,47 +507,75 @@ export class CovSubRenderController {
 
   public handleAgentStatus(metadata: PresenceState) {
     const message = metadata.stateChanged;
+    const listening = parseBooleanState(message.listening);
+    const thinking = parseBooleanState(message.thinking);
+    const speaking = parseBooleanState(message.speaking);
+    const hasActivityState = listening !== null || thinking !== null || speaking !== null;
+    const currentMsgTs = metadata.timestamp;
+
+    if (typeof message.state === 'undefined') {
+      if (!hasActivityState) {
+        return;
+      }
+
+      this.emitAgentActivity(metadata.publisher, listening, thinking, speaking);
+      return;
+    }
+
     const parsedTurnId = Number(message.turn_id);
-    const currentTurnId = Number.isFinite(parsedTurnId) ? parsedTurnId : -1;
-    const lastTurnId = Number(this._agentMessageState?.turn_id ?? -1);
+    const currentTurnId = Number.isFinite(parsedTurnId) ? parsedTurnId : 0;
+    const lastTurnId = Number(this._agentMessageState?.turn_id ?? 0);
     const lastTurnIdSafe = Number.isFinite(lastTurnId) ? lastTurnId : -1;
+    let shouldNotifyStateChange = true;
     if (lastTurnIdSafe > currentTurnId) {
       this.callMessagePrint(
         ELoggerType.debug,
         'handleAgentStatus',
         'ignore older message(turn_id)'
       );
-      return;
+      shouldNotifyStateChange = false;
     }
-    // check if message is older(by timestamp) than previous one, if so, skip
-    const currentMsgTs = metadata.timestamp;
-    if (Number(this._agentMessageState?.timestamp ?? 0) >= currentMsgTs) {
+    if (shouldNotifyStateChange) {
       this.callMessagePrint(
         ELoggerType.debug,
-        'handleAgentStatus',
-        'ignore older message(timestamp)'
+        '>>> handleAgentStatus',
+        `pts: ${this._pts.pts}, uid: ${metadata.publisher}`,
+        `prev-state: ${this._agentMessageState?.state}, prev-turn_id: ${this._agentMessageState?.turn_id}, prev-timestamp: ${this._agentMessageState?.timestamp}`,
+        `current-state: ${metadata.stateChanged.state}, turn_id: ${metadata.stateChanged.turn_id}, timestamp: ${metadata.timestamp}`
       );
-      return;
+      // set current message state
+      this._agentMessageState = {
+        state: message.state,
+        turn_id: currentTurnId,
+        timestamp: currentMsgTs,
+      };
+      this.onAgentStateChanged?.(metadata.publisher, {
+        state: message.state,
+        turnID: currentTurnId,
+        timestamp: currentMsgTs,
+        reason: '',
+      });
     }
-    this.callMessagePrint(
-      ELoggerType.debug,
-      '>>> handleAgentStatus',
-      `pts: ${this._pts.pts}, uid: ${metadata.publisher}`,
-      `prev-state: ${this._agentMessageState?.state}, prev-turn_id: ${this._agentMessageState?.turn_id}, prev-timestamp: ${this._agentMessageState?.timestamp}`,
-      `current-state: ${metadata.stateChanged.state}, turn_id: ${metadata.stateChanged.turn_id}, timestamp: ${metadata.timestamp}`
-    );
-    // set current message state
-    this._agentMessageState = {
-      state: message.state,
-      turn_id: message.turn_id,
-      timestamp: currentMsgTs,
-    };
-    this.onAgentStateChanged?.(metadata.publisher, {
-      state: message.state,
-      turnID: Number(message.turn_id),
-      timestamp: currentMsgTs,
-      reason: '',
-    });
+    if (hasActivityState) {
+      this.emitAgentActivity(metadata.publisher, listening, thinking, speaking);
+    }
+  }
+
+  private emitAgentActivity(
+    agentUserId: string,
+    listening: boolean | null,
+    thinking: boolean | null,
+    speaking: boolean | null
+  ) {
+    if (listening !== null) {
+      this.onAgentListeningChanged?.(agentUserId, listening);
+    }
+    if (thinking !== null) {
+      this.onAgentThinkingChanged?.(agentUserId, thinking);
+    }
+    if (speaking !== null) {
+      this.onAgentSpeakingChanged?.(agentUserId, speaking);
+    }
   }
 
   protected handleWordAgentMessage(uid: string, message: AgentTranscription) {
@@ -534,6 +656,12 @@ export class CovSubRenderController {
       publisher: RTMMessageEvent['publisher'];
     }
   ) {
+    const turnFinished = parseTurnFinishedMessage(message);
+    if (turnFinished) {
+      this.onAgentTurnFinished?.(options.publisher, turnFinished);
+      return;
+    }
+
     const messageObject = message?.object;
     if (!Object.values(MessageType).includes(messageObject)) {
       this.callMessagePrint(ELoggerType.info, `<<< [unknown message]`, options, message);

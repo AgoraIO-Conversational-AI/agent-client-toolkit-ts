@@ -2,23 +2,22 @@
 
 A client-side toolkit for adding Agora Conversational AI features to applications already using the Agora RTC SDK. Runs in the browser alongside your existing RTC integration — adds transcript rendering, agent state tracking, and RTM-based messaging controls on top of `agora-rtc-sdk-ng`. Framework-agnostic core with optional React hooks.
 
-[![CI](https://github.com/AgoraIO-Community/convo-ai-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/AgoraIO-Community/convo-ai-toolkit/actions/workflows/ci.yml)
+[![CI](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts/actions/workflows/ci.yml/badge.svg)](https://github.com/AgoraIO-Conversational-AI/agent-client-toolkit-ts/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Install
 
 ```bash
 # Vanilla JS / TypeScript
-pnpm add agora-agent-client-toolkit
+pnpm add agora-agent-client-toolkit agora-rtc-sdk-ng
 
 # React
-pnpm add agora-agent-client-toolkit-react
+pnpm add agora-agent-client-toolkit-react agora-agent-client-toolkit agora-rtc-react
 ```
 
 ## Migration
 
-Upgrading from `1.1.x` to `1.2.0`?
-See the quick migration guide: [MIGRATION.md](./MIGRATION.md).
+Upgrading from an earlier release? See the [migration guide](./MIGRATION.md), including the steps for `1.2.x -> 2.9.0`.
 
 ### Optional dependencies
 
@@ -70,6 +69,7 @@ ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (_agentUserId, event) => {
   console.log(event.state); // 'idle' | 'listening' | 'thinking' | 'speaking'
 });
 
+// Subscribe before starting the agent through the REST API
 ai.subscribeMessage('CHANNEL');
 
 // Send a message or interrupt the agent (requires RTM)
@@ -144,8 +144,8 @@ function VoiceSession() {
 
 | Package                                                                      | Version | Description                        |
 | ---------------------------------------------------------------------------- | ------- | ---------------------------------- |
-| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md) | 1.2.0   | Core SDK — vanilla JS / TypeScript |
-| [`agora-agent-client-toolkit-react`](./packages/react/README.md)       | 1.2.0   | React hooks                        |
+| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md)       | 2.9.0   | Core SDK — vanilla JS / TypeScript |
+| [`agora-agent-client-toolkit-react`](./packages/react/README.md)             | 2.9.0   | React hooks                        |
 
 Full API reference, configuration options, and events are in each package's README.
 
@@ -157,7 +157,7 @@ RTM is optional. Transcripts and agent state work without it — just omit `rtmC
 const ai = await AgoraVoiceAI.init({ rtcEngine: rtcClient });
 ```
 
-Three methods require RTM and throw if called without it: `sendText`, `sendImage`, and `interrupt`.
+RTM-backed methods throw without `rtmConfig`: `sendText`, `sendImage`, `interrupt`, `manualSOS`, and `manualEOS`.
 
 ## Repository layout
 

@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 Migration notes for each release should link to the matching section in [MIGRATION.md](./MIGRATION.md).
 
+## [v2.9.0] - 2026-07-10
+
+Stable release for the 2.9.0 ConvoAI API line.
+
+### agora-agent-client-toolkit
+
+#### Added
+
+- Added manual turn control APIs: `manualSOS(agentUserId, requestId?)` and `manualEOS(agentUserId, requestId?)`.
+- Added server result event types for `user.manual_sos.result`, `user.manual_eos.result`, and `assistant.manual_eos.result`.
+- Added turn-finished latency event support through `AGENT_TURN_FINISHED`.
+
+#### Changed
+
+- Version aligned with the 2.9.0 ConvoAI API release line.
+
+#### Upgrade notes
+
+- Upgrade guide: see [MIGRATION.md#12x---290](./MIGRATION.md#12x---290) for `1.2.x -> 2.9.0`.
+- RTM is required for `sendText`, `sendImage`, `interrupt`, `manualSOS`, and `manualEOS`.
+- `manualSOS()` and `manualEOS()` resolve when RTM publish succeeds. Server validation arrives later through the manual turn result events.
+- Applications should register event handlers and subscribe to the channel before starting the agent.
+
+### agora-agent-client-toolkit-react
+
+#### Added
+
+- Added React hook/context accessors for `manualSOS(...)` and `manualEOS(...)`.
+
+#### Changed
+
+- Version aligned with `agora-agent-client-toolkit`.
+
+## [v2.9.0-rc.1] - 2026-07-10
+
+First release candidate for the 2.9.0 ConvoAI API line.
+
 ## [v1.2.0] — 2026-04-06
 
 ### agora-agent-client-toolkit
