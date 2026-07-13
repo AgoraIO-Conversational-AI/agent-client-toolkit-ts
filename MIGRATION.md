@@ -55,6 +55,12 @@ ai.subscribeMessage(channel);
 await startAgent();
 ```
 
+`AGENT_STATE_CHANGED` remains supported, so existing integrations do not need
+to change this subscription. New code can additionally subscribe to the
+independent listening, thinking, and speaking events when multiple activity
+flags are needed. `useAgentState()` and the React `agentState` value remain
+aggregate compatibility APIs backed by `AGENT_STATE_CHANGED`.
+
 ### RTM-backed methods and result events
 
 The following methods require `rtmConfig` and throw `RTMRequiredError` when it is omitted:

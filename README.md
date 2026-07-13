@@ -66,7 +66,16 @@ ai.on(AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (transcript) => {
 });
 
 ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (_agentUserId, event) => {
-  console.log(event.state); // 'idle' | 'listening' | 'thinking' | 'speaking'
+  console.log(event.state); // deprecated compatibility event, still emitted
+});
+ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, (_agentUserId, active) => {
+  console.log('listening', active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, (_agentUserId, active) => {
+  console.log('thinking', active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, (_agentUserId, active) => {
+  console.log('speaking', active);
 });
 
 // Subscribe before starting the agent through the REST API
@@ -76,6 +85,8 @@ ai.subscribeMessage('CHANNEL');
 await ai.sendText('AGENT_UID', { messageType: ChatMessageType.TEXT, text: 'Hello' });
 await ai.interrupt('AGENT_UID');
 ```
+
+> `AgoraVoiceAIEvents.AGENT_STATE_CHANGED` is deprecated but remains supported and continues to be emitted. Existing integrations do not need to migrate. Use the independent activity events when multiple flags are needed.
 
 ### React
 

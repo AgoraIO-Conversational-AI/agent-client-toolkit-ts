@@ -21,6 +21,10 @@ import type {
  * @since 0.1.0
  */
 export enum AgoraVoiceAIEvents {
+  /**
+   * @deprecated This aggregate event remains supported. Use the independent
+   * activity events when multiple flags are needed.
+   */
   AGENT_STATE_CHANGED = 'agent-state-changed',
   AGENT_LISTENING_CHANGED = 'agent-listening-changed',
   AGENT_THINKING_CHANGED = 'agent-thinking-changed',
@@ -47,6 +51,8 @@ export enum AgoraVoiceAIEvents {
 export interface AgoraVoiceAIEventHandlers {
   /**
    * Fired when the agent state changes via RTM presence event.
+   * @deprecated This aggregate event remains supported. Use the independent
+   * activity events when multiple flags are needed.
    * @remarks Only available when `rtmConfig` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.AGENT_STATE_CHANGED]: (agentUserId: string, event: StateChangeEvent) => void;

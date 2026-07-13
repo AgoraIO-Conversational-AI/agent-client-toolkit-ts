@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 Migration notes for each release should link to the matching section in [MIGRATION.md](./MIGRATION.md).
 
+## [Unreleased]
+
+### Deprecated
+
+- Deprecated `AGENT_STATE_CHANGED` for direct SDK integrations. Use the
+  independent `AGENT_LISTENING_CHANGED`, `AGENT_THINKING_CHANGED`, and
+  `AGENT_SPEAKING_CHANGED` events when multiple activity flags are needed.
+  `AGENT_STATE_CHANGED` remains supported and emitted; React `agentState` APIs
+  remain the aggregate compatibility surface.
+
 ## [v2.9.0] - 2026-07-10
 
 Stable release for the 2.9.0 ConvoAI API line.

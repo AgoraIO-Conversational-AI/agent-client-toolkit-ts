@@ -160,6 +160,8 @@ const transcript = useTranscript();
 ### `useAgentState()`
 
 Subscribe to `AGENT_STATE_CHANGED` events. Returns the current agent state, full state-change event, and agent UID.
+This hook remains the supported aggregate compatibility API. Direct core SDK
+integrations can use the independent events when multiple activity flags are needed.
 
 ```typescript
 const { agentState, stateEvent, agentUserId } = useAgentState();

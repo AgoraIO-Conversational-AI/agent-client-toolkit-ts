@@ -39,7 +39,16 @@ ai.on(AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (transcript) => {
 });
 
 ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (agentUserId, event) => {
-  console.log('Agent state:', event.state);
+  console.log('Agent state:', agentUserId, event.state); // deprecated but supported
+});
+ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, (agentUserId, active) => {
+  console.log('Agent listening:', agentUserId, active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, (agentUserId, active) => {
+  console.log('Agent thinking:', agentUserId, active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, (agentUserId, active) => {
+  console.log('Agent speaking:', agentUserId, active);
 });
 
 // 4. Join and publish via the RTC client directly — AgoraVoiceAI does not wrap join/publish
@@ -74,7 +83,7 @@ The following parameters must be set when starting the AI agent via the Agora RE
 
 | Parameter | Required for |
 |-----------|-------------|
-| `advanced_features.enable_rtm: true` | `AGENT_STATE_CHANGED`, `MESSAGE_RECEIPT_UPDATED`, `MESSAGE_ERROR`, `MESSAGE_SAL_STATUS`, manual turn result events |
+| `advanced_features.enable_rtm: true` | Agent activity events, `AGENT_STATE_CHANGED`, `MESSAGE_RECEIPT_UPDATED`, `MESSAGE_ERROR`, `MESSAGE_SAL_STATUS`, manual turn result events |
 | `parameters.data_channel: "rtm"` | Same as above |
 | `parameters.enable_metrics: true` | `AGENT_METRICS` |
 | `parameters.enable_error_message: true` | `AGENT_ERROR` |
@@ -161,9 +170,32 @@ Word-level timing is at `metadata.words` — not at the top level.
 
 ---
 
-#### `AGENT_STATE_CHANGED` _(requires `rtmConfig`)_
+#### Agent activity events _(requires `rtmConfig`)_
 
-Fires on agent lifecycle transitions.
+Use the independent activity events for new integrations. More than one flag
+may be active at the same time.
+
+```typescript
+ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, (agentUserId, active) => {
+  console.log(agentUserId, 'listening', active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, (agentUserId, active) => {
+  console.log(agentUserId, 'thinking', active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, (agentUserId, active) => {
+  console.log(agentUserId, 'speaking', active);
+});
+```
+
+> Requires `advanced_features.enable_rtm: true` and `parameters.data_channel: "rtm"` in the agent start request.
+
+---
+
+#### `AGENT_STATE_CHANGED` _(deprecated, requires `rtmConfig`)_
+
+This event is deprecated but remains supported and continues to be emitted.
+Existing integrations do not need to migrate. Use the independent activity
+events when multiple flags are needed.
 
 ```typescript
 ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (agentUserId, event) => {
