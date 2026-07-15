@@ -6,7 +6,7 @@ Framework-agnostic TypeScript SDK for building real-time conversational AI exper
 
 ```bash
 pnpm add agora-agent-client-toolkit agora-rtc-sdk-ng
-# RTM is optional — only required for sendText, sendImage, interrupt
+# RTM is optional — only required for sendText, sendImage, interrupt, manualSOS, manualEOS
 pnpm add agora-rtm
 ```
 
@@ -14,17 +14,21 @@ pnpm add agora-rtm
 
 ```typescript
 import AgoraRTC from 'agora-rtc-sdk-ng';
+import RTMClient from 'agora-rtm';
 import {
   AgoraVoiceAI,
   AgoraVoiceAIEvents,
   TranscriptHelperMode,
 } from 'agora-agent-client-toolkit';
-// 1. Create the RTC client
+// 1. Create the RTC and RTM clients
 const rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+const rtmClient = new RTMClient('YOUR_APP_ID', 'YOUR_USER_ID');
+await rtmClient.login({ token: 'YOUR_RTM_TOKEN' });
 
 // 2. Initialize the AI singleton
 const ai = await AgoraVoiceAI.init({
   rtcEngine: rtcClient,
+  rtmConfig: { rtmEngine: rtmClient },
   renderMode: TranscriptHelperMode.WORD,
 });
 
@@ -35,7 +39,16 @@ ai.on(AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (transcript) => {
 });
 
 ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (agentUserId, event) => {
-  console.log('Agent state:', event.state);
+  console.log('Agent state:', agentUserId, event.state); // deprecated but supported
+});
+ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, (agentUserId, active) => {
+  console.log('Agent listening:', agentUserId, active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, (agentUserId, active) => {
+  console.log('Agent thinking:', agentUserId, active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, (agentUserId, active) => {
+  console.log('Agent speaking:', agentUserId, active);
 });
 
 // 4. Join and publish via the RTC client directly — AgoraVoiceAI does not wrap join/publish
@@ -43,8 +56,8 @@ await rtcClient.join('YOUR_APP_ID', 'YOUR_CHANNEL', 'YOUR_TOKEN', null);
 const micTrack = await AgoraRTC.createMicrophoneAudioTrack();
 await rtcClient.publish([micTrack]);
 
-// 5. Start receiving AI messages
-await ai.subscribeMessage('YOUR_CHANNEL');
+// 5. Subscribe before starting the agent through the REST API
+ai.subscribeMessage('YOUR_CHANNEL');
 ```
 
 ## Prerequisites
@@ -54,7 +67,8 @@ await ai.subscribeMessage('YOUR_CHANNEL');
 | `agora-rtc-sdk-ng` | ≥ 4.23.4 |
 | `agora-rtm` | ≥ 2.0.0 (optional) |
 | TypeScript | ≥ 5.0 |
-| Node.js / browser | ES2020+ |
+| Node.js | ≥ 20.0.0 |
+| Browser target | ES2020+ |
 
 For WORD-mode transcript rendering, set `ENABLE_AUDIO_PTS_METADATA` before creating the RTC client:
 
@@ -69,7 +83,7 @@ The following parameters must be set when starting the AI agent via the Agora RE
 
 | Parameter | Required for |
 |-----------|-------------|
-| `advanced_features.enable_rtm: true` | `AGENT_STATE_CHANGED`, `MESSAGE_RECEIPT_UPDATED`, `MESSAGE_ERROR`, `MESSAGE_SAL_STATUS` |
+| `advanced_features.enable_rtm: true` | Agent activity events, `AGENT_STATE_CHANGED`, `MESSAGE_RECEIPT_UPDATED`, `MESSAGE_ERROR`, `MESSAGE_SAL_STATUS`, manual turn result events |
 | `parameters.data_channel: "rtm"` | Same as above |
 | `parameters.enable_metrics: true` | `AGENT_METRICS` |
 | `parameters.enable_error_message: true` | `AGENT_ERROR` |
@@ -108,6 +122,8 @@ ai.chat(agentUserId: string, message: ChatMessageText | ChatMessageImage): Promi
 ai.sendText(agentUserId: string, message: ChatMessageText): Promise<void>   // requires rtmConfig
 ai.sendImage(agentUserId: string, message: ChatMessageImage): Promise<void> // requires rtmConfig
 ai.interrupt(agentUserId: string): Promise<void>                            // requires rtmConfig
+ai.manualSOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmConfig
+ai.manualEOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmConfig
 ai.destroy(): void
 ai.getCfg(): { rtcEngine, renderMode, channel, enableLog }
 ai.on(event, handler): void
@@ -154,9 +170,32 @@ Word-level timing is at `metadata.words` — not at the top level.
 
 ---
 
-#### `AGENT_STATE_CHANGED` _(requires `rtmConfig`)_
+#### Agent activity events _(requires `rtmConfig`)_
 
-Fires on agent lifecycle transitions.
+Use the independent activity events for new integrations. More than one flag
+may be active at the same time.
+
+```typescript
+ai.on(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, (agentUserId, active) => {
+  console.log(agentUserId, 'listening', active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, (agentUserId, active) => {
+  console.log(agentUserId, 'thinking', active);
+});
+ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, (agentUserId, active) => {
+  console.log(agentUserId, 'speaking', active);
+});
+```
+
+> Requires `advanced_features.enable_rtm: true` and `parameters.data_channel: "rtm"` in the agent start request.
+
+---
+
+#### `AGENT_STATE_CHANGED` _(deprecated, requires `rtmConfig`)_
+
+This event is deprecated but remains supported and continues to be emitted.
+Existing integrations do not need to migrate. Use the independent activity
+events when multiple flags are needed.
 
 ```typescript
 ai.on(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, (agentUserId, event) => {
@@ -256,6 +295,42 @@ ai.on(AgoraVoiceAIEvents.MESSAGE_SAL_STATUS, (agentUserId, salStatus) => {
 // MessageSalStatus: VP_DISABLED | VP_UNREGISTER | VP_REGISTERING | VP_REGISTER_SUCCESS | VP_REGISTER_FAIL | VP_REGISTER_DUPLICATE
 ```
 
+---
+
+#### `USER_MANUAL_SOS` / `USER_MANUAL_EOS` / `AGENT_MANUAL_EOS` _(requires `rtmConfig`)_
+
+Manual turn control is a two-step flow. `manualSOS()` and `manualEOS()` publish an RTM marker and resolve with the `requestId` used in the payload. That only means RTM publish succeeded; server validation arrives later through events.
+
+```typescript
+const sosRequestId = await ai.manualSOS(agentUserId);
+const eosRequestId = await ai.manualEOS(agentUserId, 'eos-req-20260612-001');
+
+ai.on(AgoraVoiceAIEvents.USER_MANUAL_SOS, (agentUserId, event) => {
+  // event: { eventId, timestamp, payload: { success, requestId, turnId, errorMessage } }
+});
+
+ai.on(AgoraVoiceAIEvents.USER_MANUAL_EOS, (agentUserId, event) => {
+  // Failed server results may have payload.turnId === null.
+});
+
+ai.on(AgoraVoiceAIEvents.AGENT_MANUAL_EOS, (agentUserId, event) => {
+  // Server automatic EOS notification in manual mode.
+  // event.payload: { reason, maxDurationMs, turnId }
+});
+```
+
+Wire mapping:
+
+| Client call / server event | RTM custom type or event type |
+|----------------------------|-------------------------------|
+| `manualSOS()` | `user.manual_sos` with `{ "request_id": "..." }` |
+| `manualEOS()` | `user.manual_eos` with `{ "request_id": "..." }` |
+| `USER_MANUAL_SOS` | `user.manual_sos.result` |
+| `USER_MANUAL_EOS` | `user.manual_eos.result` |
+| `AGENT_MANUAL_EOS` | `assistant.manual_eos.result` |
+
+Common `errorMessage` values are `Current mode is not manual.`, `No turns available for SOS labeling.`, and `No turns available for EOS labeling.`. The SDK preserves the server string and does not locally decide whether the current mode is manual.
+
 ### `TranscriptHelperMode`
 
 | Value | Behavior |
@@ -293,7 +368,7 @@ Advanced: implement `IMetricsReporter` or use the exported `ConsoleMetricsReport
 | Error Class | When Thrown | Recovery |
 |------------|------------|----------|
 | `NotInitializedError` | `getInstance()` or `getCfg()` called before `init()` | Call `await AgoraVoiceAI.init(config)` first |
-| `RTMRequiredError` | `sendText()`, `sendImage()`, or `interrupt()` called without RTM | Pass `rtmConfig: { rtmEngine }` in `init()` config |
+| `RTMRequiredError` | `sendText()`, `sendImage()`, `interrupt()`, `manualSOS()`, or `manualEOS()` called without RTM | Pass `rtmConfig: { rtmEngine }` in `init()` config |
 | `ConversationalAIError` | `chat()` called with unsupported message type | Check `message.messageType` is TEXT or IMAGE |
 
 All error classes extend `ConversationalAIError`, which extends `Error`. Use `instanceof` to catch specific error types.
@@ -380,10 +455,12 @@ See the [Agora Conversational AI documentation](https://docs.agora.io/en/convers
 
 **Cause:** Standalone hooks (`useTranscript`, `useAgentState`, etc.) need access to the `AgoraVoiceAI` instance. Without a `ConversationalAIProvider`, they fall back to a single `getInstance()` attempt which may miss the instance if `init()` hasn't completed yet.
 
-**Fix:** Wrap your component tree in `ConversationalAIProvider` — standalone hooks connect instantly via React context:
+**Fix:** Wrap your component tree in `ConversationalAIProvider` so standalone hooks connect through React context. Pass `rtmConfig` when the child hooks consume RTM-backed state or controls:
 
 ```tsx
-<ConversationalAIProvider config={{ channel: 'my-channel' }}>
+<ConversationalAIProvider
+  config={{ channel: 'my-channel', rtmConfig: { rtmEngine: rtmClient } }}
+>
   <TranscriptPanel />  {/* useTranscript() connects via context */}
   <StatusBar />         {/* useAgentState() connects via context */}
 </ConversationalAIProvider>

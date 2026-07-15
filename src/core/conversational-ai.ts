@@ -17,8 +17,11 @@ import {
   type AgentTranscription,
   type ChatMessageImage,
   type ChatMessageText,
+  type AgentManualEosEvent,
   type MessageSalStatusData,
   type TranscriptHelperItem,
+  type UserManualEosEvent,
+  type UserManualSosEvent,
   type UserTranscription,
   type AgentMetric,
   type MessageReceipt,
@@ -26,6 +29,7 @@ import {
   type StateChangeEvent,
   type TranscriptionBase,
   type ChatMessageBase,
+  type Turn,
   type AgoraVoiceAIState,
   type PresenceState,
   type RTMMessageEvent,
@@ -51,11 +55,47 @@ import { CovSubRenderController } from '../rendering/sub-render';
 import { ChunkedMessageAssembler } from '../messaging/chunked';
 
 const TAG = 'AgoraVoiceAI';
-const VERSION = '1.2.0';
+const VERSION = '2.9.0';
 
 const formatLog = factoryFormatLog({ tag: TAG });
+const USER_MANUAL_SOS_CUSTOM_TYPE = 'user.manual_sos';
+const USER_MANUAL_EOS_CUSTOM_TYPE = 'user.manual_eos';
 
 export type { AgoraVoiceAIConfig, RTMConfig };
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function buildManualTurnRequestId(kind: 'sos' | 'eos'): string {
+  return `${kind}-req-${Date.now()}-${genTraceID()}`;
+}
+
+function parseUserManualPayload(payload: UnknownRecord): UserManualSosEvent['payload'] {
+  return {
+    success: payload.success === true,
+    requestId: asString(payload.request_id),
+    turnId:
+      typeof payload.turn_id === 'number' && Number.isFinite(payload.turn_id)
+        ? payload.turn_id
+        : null,
+    errorMessage: typeof payload.error_message === 'string' ? payload.error_message : null,
+  };
+}
 
 /**
  * A class that manages conversational AI interactions through Agora's RTC and RTM services.
@@ -210,9 +250,22 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       enableLog: this.enableLog,
       onChatHistoryUpdated: safe(this.onChatHistoryUpdated.bind(this), 'onChatHistoryUpdated'),
       onAgentStateChanged: safe(this.onAgentStateChanged.bind(this), 'onAgentStateChanged'),
+      onAgentListeningChanged: safe(
+        this.onAgentListeningChanged.bind(this),
+        'onAgentListeningChanged'
+      ),
+      onAgentThinkingChanged: safe(
+        this.onAgentThinkingChanged.bind(this),
+        'onAgentThinkingChanged'
+      ),
+      onAgentSpeakingChanged: safe(
+        this.onAgentSpeakingChanged.bind(this),
+        'onAgentSpeakingChanged'
+      ),
       onAgentInterrupted: safe(this.onAgentInterrupted.bind(this), 'onAgentInterrupted'),
       onDebugLog: safe(this.onDebugLog.bind(this), 'onDebugLog'),
       onAgentMetrics: safe(this.onAgentMetrics.bind(this), 'onAgentMetrics'),
+      onAgentTurnFinished: safe(this.onAgentTurnFinished.bind(this), 'onAgentTurnFinished'),
       onAgentError: safe(this.onAgentError.bind(this), 'onAgentError'),
       onMessageReceipt: safe(this.onMessageReceiptUpdated.bind(this), 'onMessageReceipt'),
       onMessageError: safe(this.onMessageError.bind(this), 'onMessageError'),
@@ -706,6 +759,92 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
     }
   }
 
+  /**
+   * Triggers a user-side manual start-of-speech marker through RTM.
+   *
+   * The returned `requestId` correlates this publish with the later
+   * `USER_MANUAL_SOS` server result event. A resolved promise only means RTM
+   * publish succeeded; server-side validation is reported asynchronously.
+   *
+   * @param agentUserId - The user ID of the agent to send the marker to
+   * @param requestId - Optional non-empty request ID. Generated when omitted.
+   * @returns The request ID used in the RTM payload
+   * @remarks Requires `rtmConfig` to be present in `init()`.
+   */
+  public async manualSOS(agentUserId: string, requestId?: string): Promise<string> {
+    return this.publishManualTurn(
+      agentUserId,
+      USER_MANUAL_SOS_CUSTOM_TYPE,
+      requestId ?? buildManualTurnRequestId('sos'),
+      'manualSOS'
+    );
+  }
+
+  /**
+   * Triggers a user-side manual end-of-speech marker through RTM.
+   *
+   * The returned `requestId` correlates this publish with the later
+   * `USER_MANUAL_EOS` server result event. A resolved promise only means RTM
+   * publish succeeded; server-side validation is reported asynchronously.
+   *
+   * @param agentUserId - The user ID of the agent to send the marker to
+   * @param requestId - Optional non-empty request ID. Generated when omitted.
+   * @returns The request ID used in the RTM payload
+   * @remarks Requires `rtmConfig` to be present in `init()`.
+   */
+  public async manualEOS(agentUserId: string, requestId?: string): Promise<string> {
+    return this.publishManualTurn(
+      agentUserId,
+      USER_MANUAL_EOS_CUSTOM_TYPE,
+      requestId ?? buildManualTurnRequestId('eos'),
+      'manualEOS'
+    );
+  }
+
+  private async publishManualTurn(
+    agentUserId: string,
+    customType: typeof USER_MANUAL_SOS_CUSTOM_TYPE | typeof USER_MANUAL_EOS_CUSTOM_TYPE,
+    requestId: string,
+    method: 'manualSOS' | 'manualEOS'
+  ): Promise<string> {
+    const traceId = requestId;
+    this.callMessagePrint(ELoggerType.debug, `>>> [traceID:${traceId}] [${method}]`, agentUserId);
+
+    if (typeof requestId !== 'string' || requestId.length === 0) {
+      throw new ConversationalAIError(`[AgoraVoiceAI] ${method}() requires a non-empty requestId.`);
+    }
+
+    const rtmEngine = this.requireRTM(method);
+
+    const payload = JSON.stringify({ request_id: requestId });
+    const options = {
+      channelType: 'USER',
+      customType,
+    };
+
+    try {
+      const result = await rtmEngine.publish(agentUserId, payload, options);
+      this.callMessagePrint(
+        ELoggerType.debug,
+        `>>> [traceID:${traceId}] [${method}]`,
+        'successfully sent manual turn message',
+        result
+      );
+      return requestId;
+    } catch (error: unknown) {
+      this.callMessagePrint(
+        ELoggerType.error,
+        `>>> [traceID:${traceId}] [${method}]`,
+        'failed to send manual turn message',
+        error
+      );
+      throw new ConversationalAIError(
+        `Failed to send ${method}: ${(error as Error).message ?? error}`,
+        { cause: error }
+      );
+    }
+  }
+
   // ── Internal Event Emitters (Render Controller -> Public API) ────────────
   private onChatHistoryUpdated(
     chatHistory: TranscriptHelperItem<Partial<UserTranscription | AgentTranscription>>[]
@@ -725,6 +864,33 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       event
     );
     this.emit(AgoraVoiceAIEvents.AGENT_STATE_CHANGED, agentUserId, event);
+  }
+  private onAgentListeningChanged(agentUserId: string, isListening: boolean) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED}`,
+      agentUserId,
+      isListening
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED, agentUserId, isListening);
+  }
+  private onAgentThinkingChanged(agentUserId: string, isThinking: boolean) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_THINKING_CHANGED}`,
+      agentUserId,
+      isThinking
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_THINKING_CHANGED, agentUserId, isThinking);
+  }
+  private onAgentSpeakingChanged(agentUserId: string, isSpeaking: boolean) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED}`,
+      agentUserId,
+      isSpeaking
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, agentUserId, isSpeaking);
   }
   private onAgentInterrupted(agentUserId: string, event: { turnID: number; timestamp: number }) {
     this.callMessagePrint(
@@ -746,6 +912,15 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       metrics
     );
     this.emit(AgoraVoiceAIEvents.AGENT_METRICS, agentUserId, metrics);
+  }
+  private onAgentTurnFinished(agentUserId: string, turn: Turn) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_TURN_FINISHED}`,
+      agentUserId,
+      turn
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_TURN_FINISHED, agentUserId, turn);
   }
   private onAgentError(agentUserId: string, error: ModuleError) {
     this.callMessagePrint(
@@ -791,6 +966,90 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       message
     );
     this.emit(AgoraVoiceAIEvents.MESSAGE_SAL_STATUS, agentUserId, message);
+  }
+
+  private onUserManualSos(agentUserId: string, event: UserManualSosEvent) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.USER_MANUAL_SOS}`,
+      agentUserId,
+      event
+    );
+    this.emit(AgoraVoiceAIEvents.USER_MANUAL_SOS, agentUserId, event);
+  }
+
+  private onUserManualEos(agentUserId: string, event: UserManualEosEvent) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.USER_MANUAL_EOS}`,
+      agentUserId,
+      event
+    );
+    this.emit(AgoraVoiceAIEvents.USER_MANUAL_EOS, agentUserId, event);
+  }
+
+  private onAgentManualEos(agentUserId: string, event: AgentManualEosEvent) {
+    this.callMessagePrint(
+      ELoggerType.debug,
+      `>>> ${AgoraVoiceAIEvents.AGENT_MANUAL_EOS}`,
+      agentUserId,
+      event
+    );
+    this.emit(AgoraVoiceAIEvents.AGENT_MANUAL_EOS, agentUserId, event);
+  }
+
+  private handleManualTurnEvent(agentUserId: string, message: UnknownRecord): boolean {
+    const rawMessageType = message.event_type ?? message.object;
+    if (typeof rawMessageType !== 'string') {
+      return false;
+    }
+
+    if (
+      rawMessageType !== MessageType.USER_MANUAL_SOS_RESULT &&
+      rawMessageType !== MessageType.USER_MANUAL_EOS_RESULT &&
+      rawMessageType !== MessageType.AGENT_MANUAL_EOS_RESULT
+    ) {
+      return false;
+    }
+
+    const payload = isRecord(message.payload) ? message.payload : null;
+    if (!payload) {
+      this.callMessagePrint(ELoggerType.warn, 'Invalid manual turn event payload', message);
+      return true;
+    }
+
+    const eventId = asString(message.event_id);
+    const timestamp = asNumber(message.event_ms);
+
+    switch (rawMessageType) {
+      case MessageType.USER_MANUAL_SOS_RESULT:
+        this.onUserManualSos(agentUserId, {
+          eventId,
+          timestamp,
+          payload: parseUserManualPayload(payload),
+        });
+        return true;
+      case MessageType.USER_MANUAL_EOS_RESULT:
+        this.onUserManualEos(agentUserId, {
+          eventId,
+          timestamp,
+          payload: parseUserManualPayload(payload),
+        });
+        return true;
+      case MessageType.AGENT_MANUAL_EOS_RESULT:
+        this.onAgentManualEos(agentUserId, {
+          eventId,
+          timestamp,
+          payload: {
+            reason: asString(payload.reason),
+            maxDurationMs: asNullableNumber(payload.max_duration_ms),
+            turnId: asNullableNumber(payload.turn_id),
+          },
+        });
+        return true;
+      default:
+        return false;
+    }
   }
 
   // ── Internal Diagnostics (Dev-only warnings) ─────────────────────────────
@@ -1016,6 +1275,10 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       parsedMessage
     );
 
+    if (isRecord(parsedMessage) && this.handleManualTurnEvent(message.publisher, parsedMessage)) {
+      return;
+    }
+
     try {
       this.covSubRenderController.handleMessage(parsedMessage as TranscriptionBase, {
         publisher: message.publisher,
@@ -1037,11 +1300,22 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       `Publisher: ${presence.publisher}`
     );
     const stateChanged = presence.stateChanged;
-    if (
-      stateChanged &&
-      typeof stateChanged.state === 'string' &&
-      typeof stateChanged.turn_id !== 'undefined'
-    ) {
+    if (stateChanged) {
+      const hasAgentState = typeof stateChanged.state === 'string';
+      const hasActivityState =
+        typeof stateChanged.listening !== 'undefined' ||
+        typeof stateChanged.thinking !== 'undefined' ||
+        typeof stateChanged.speaking !== 'undefined';
+
+      if (!hasAgentState && !hasActivityState) {
+        this.callMessagePrint(
+          ELoggerType.debug,
+          `>>> [traceID:${traceId}] ${RTMEventType.PRESENCE}`,
+          'No supported state change detected, skipping handling presence event'
+        );
+        return;
+      }
+
       this.callMessagePrint(
         ELoggerType.debug,
         `>>> [traceID:${traceId}] ${RTMEventType.PRESENCE}`,
@@ -1050,8 +1324,11 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       this.covSubRenderController.handleAgentStatus({
         ...presence,
         stateChanged: {
-          state: stateChanged.state as AgentState,
-          turn_id: String(stateChanged.turn_id),
+          ...stateChanged,
+          state:
+            typeof stateChanged.state === 'string' ? (stateChanged.state as AgentState) : undefined,
+          turn_id:
+            typeof stateChanged.turn_id !== 'undefined' ? String(stateChanged.turn_id) : undefined,
         },
       } as PresenceState);
     } else {
