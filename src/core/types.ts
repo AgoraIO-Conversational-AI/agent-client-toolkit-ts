@@ -183,7 +183,7 @@ export class NotInitializedError extends ConversationalAIError {
 export class RTMRequiredError extends ConversationalAIError {
   constructor(method: string) {
     super(
-      `[AgoraVoiceAI] ${method}() requires RTM. Pass rtmConfig: { rtmEngine } when calling AgoraVoiceAI.init().`
+      `[AgoraVoiceAI] ${method}() requires RTM. Pass rtmEngine when calling AgoraVoiceAI.init().`
     );
     this.name = 'RTMRequiredError';
   }

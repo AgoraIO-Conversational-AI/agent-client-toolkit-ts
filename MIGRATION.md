@@ -4,8 +4,23 @@ Use this file for all version-to-version upgrade steps.
 
 ## Version index
 
+- [2.9.0 -> 2.9.1](#290---291)
 - [1.2.x -> 2.9.0](#12x---290)
 - [1.1.x -> 1.2.0](#11x---120)
+
+---
+
+## 2.9.0 -> 2.9.1
+
+This release restores the `ConversationalAIAPI` export and its legacy enum/type names. All
+initialization paths now use the top-level `rtmEngine` field. Replace
+`rtmConfig: { rtmEngine }` with `rtmEngine` when upgrading.
+
+`enableRenderModeFallback` defaults to `true`. In WORD mode, messages without word timing data
+switch rendering to TEXT while preserving text already emitted. Set it to `false` to keep the
+previous WORD-only behavior.
+
+Keep `agora-agent-client-toolkit-react` and `agora-agent-client-toolkit` on the same version.
 
 ---
 

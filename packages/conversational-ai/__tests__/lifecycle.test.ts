@@ -51,7 +51,7 @@ describe('AgoraVoiceAI lifecycle', () => {
     expect(rtcClient.on).toHaveBeenCalled();
   });
 
-  it('sendText() without rtmConfig throws with a descriptive message', async () => {
+  it('sendText() without rtmEngine throws with a descriptive message', async () => {
     const rtcClient = makeRtcClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtcClient as never,
@@ -61,7 +61,7 @@ describe('AgoraVoiceAI lifecycle', () => {
     ).rejects.toThrow('requires RTM');
   });
 
-  it('interrupt() without rtmConfig throws with a descriptive message', async () => {
+  it('interrupt() without rtmEngine throws with a descriptive message', async () => {
     const rtcClient = makeRtcClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtcClient as never,
@@ -134,23 +134,19 @@ describe('AgoraVoiceAI lifecycle', () => {
     await expect(
       AgoraVoiceAI.init({
         rtcEngine: rtcClient as never,
-        rtmConfig: {
-          rtmEngine: {
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-          } as never,
-        },
+        rtmEngine: {
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        } as never,
       })
     ).rejects.toThrow(ConversationalAIError);
     await expect(
       AgoraVoiceAI.init({
         rtcEngine: rtcClient as never,
-        rtmConfig: {
-          rtmEngine: {
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-          } as never,
-        },
+        rtmEngine: {
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        } as never,
       })
     ).rejects.toThrow('rtmEngine.publish(channelName, message, options?)');
   });

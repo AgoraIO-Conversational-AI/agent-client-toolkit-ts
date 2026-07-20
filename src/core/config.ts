@@ -29,28 +29,19 @@ export interface RTMEngine {
   removeEventListener(eventName: string, listener: (...args: any[]) => void): void;
 }
 
-export interface RTMConfig {
-  /** Pre-initialized RTM client. Required if using RTM. */
-  rtmEngine: RTMEngine;
-}
-
 /**
  * Configuration for initializing {@link AgoraVoiceAI}.
  *
  * Pass your pre-created RTC client in `rtcEngine`. RTM is optional; provide
- * `rtmConfig.rtmEngine` only when you need RTM-dependent features such as
- * `sendText`, `sendImage`, `interrupt`, and RTM state events.
+ * `rtmEngine` only when you need RTM-dependent features such as `sendText`,
+ * `sendImage`, `interrupt`, and RTM state events.
  */
 export interface AgoraVoiceAIConfig {
   /** Pre-initialized Agora RTC client. Always required. */
   rtcEngine: RTCEngine;
 
-  /**
-   * Optional RTM configuration. When absent, the toolkit operates on
-   * RTC stream-messages only. RTM-dependent features (sendText, sendImage,
-   * interrupt, agent state events) are unavailable and will throw if called.
-   */
-  rtmConfig?: RTMConfig;
+  /** Pre-initialized Agora RTM client. Optional for RTC-only integrations. */
+  rtmEngine?: RTMEngine;
 
   /**
    * Transcript rendering mode.
@@ -62,6 +53,12 @@ export interface AgoraVoiceAIConfig {
   renderMode?: TranscriptHelperMode;
   /** Enable SDK debug logging to console and DEBUG_LOG events. */
   enableLog?: boolean;
+
+  /**
+   * Fall back from WORD to TEXT when agent messages omit word timing data.
+   * Defaults to true.
+   */
+  enableRenderModeFallback?: boolean;
 
   /**
    * When true, loads `@agora-js/report` dynamically and routes metrics events

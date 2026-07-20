@@ -39,25 +39,25 @@ export interface UseConversationalAIReturn {
   error: ModuleError | null;
   /**
    * Send an interrupt signal to the agent.
-   * @remarks Requires `rtmConfig` to be present in the hook config.
+   * @remarks Requires `rtmEngine` to be present in the hook config.
    * Throws `[AgoraVoiceAI] This method requires RTM.` when called without RTM.
    */
   interrupt: (agentUserId: string) => Promise<void>;
   /**
    * Trigger a manual start-of-speech marker.
    * @returns The request ID used to correlate the later USER_MANUAL_SOS event.
-   * @remarks Requires `rtmConfig` to be present in the hook config.
+   * @remarks Requires `rtmEngine` to be present in the hook config.
    */
   manualSOS: (agentUserId: string, requestId?: string) => Promise<string>;
   /**
    * Trigger a manual end-of-speech marker.
    * @returns The request ID used to correlate the later USER_MANUAL_EOS event.
-   * @remarks Requires `rtmConfig` to be present in the hook config.
+   * @remarks Requires `rtmEngine` to be present in the hook config.
    */
   manualEOS: (agentUserId: string, requestId?: string) => Promise<string>;
   /**
    * Send a plain-text message to the agent.
-   * @remarks Requires `rtmConfig` to be present in the hook config.
+   * @remarks Requires `rtmEngine` to be present in the hook config.
    * Throws `[AgoraVoiceAI] This method requires RTM.` when called without RTM.
    */
   sendMessage: (agentUserId: string, text: string) => Promise<void>;
@@ -278,7 +278,7 @@ function useConversationalAICore(config: UseConversationalAIConfig): UseConversa
  * function ConversationalApp() {
  *   const config = useMemo(() => ({
  *     channel: 'my-channel',
- *     rtmConfig: { rtmEngine: myRtmClient },
+ *     rtmEngine: myRtmClient,
  *     renderMode: TranscriptHelperMode.WORD,
  *   }), []);
  *

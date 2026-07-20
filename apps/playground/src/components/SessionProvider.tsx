@@ -66,7 +66,7 @@ interface Props {
 export function SessionProvider({ credentials, rtcClient, rtmClient, onDisconnect }: Props) {
   const config = useMemo(
     () => ({
-      rtmConfig: rtmClient ? { rtmEngine: rtmClient } : undefined,
+      rtmEngine: rtmClient ?? undefined,
       renderMode: credentials.renderMode,
       enableLog: credentials.enableLog,
       channel: credentials.channelName,

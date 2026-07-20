@@ -18,7 +18,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     await ai.sendText('agent-uid', {
@@ -54,7 +54,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     await ai.sendImage('agent-uid', {
@@ -75,7 +75,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     await ai.interrupt('agent-uid');
@@ -97,7 +97,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     const requestId = await ai.manualSOS('agent-uid', 'sos-req-001');
@@ -115,7 +115,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     const requestId = await ai.manualEOS('agent-uid', 'eos-req-001');
@@ -133,7 +133,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     const requestId = await ai.manualSOS('agent-uid');
@@ -148,7 +148,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     await expect(ai.manualEOS('agent-uid', '')).rejects.toThrow(ConversationalAIError);
@@ -167,7 +167,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     await ai.chat('agent-uid', {
@@ -185,7 +185,7 @@ describe('AgoraVoiceAI messaging', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
 
     await ai.chat('agent-uid', {

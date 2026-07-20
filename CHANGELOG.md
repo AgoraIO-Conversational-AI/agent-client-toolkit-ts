@@ -15,6 +15,21 @@ Migration notes for each release should link to the matching section in [MIGRATI
   `AGENT_STATE_CHANGED` remains supported and emitted; React `agentState` APIs
   remain the aggregate compatibility surface.
 
+## [v2.9.1] - 2026-07-20
+
+### Fixed
+
+- Restored the `ConversationalAIAPI` export and standardized RTM config on top-level `rtmEngine`.
+- Fixed WORD-to-TEXT fallback to preserve rendered history and discard pending WORD data.
+
+### Changed
+
+- Bumped the core and React npm packages to `2.9.1`.
+
+### Upgrade notes
+
+- Migration guide: see [MIGRATION.md#290---291](./MIGRATION.md#290---291).
+
 ## [v2.9.0] - 2026-07-10
 
 Stable release for the 2.9.0 ConvoAI API line.

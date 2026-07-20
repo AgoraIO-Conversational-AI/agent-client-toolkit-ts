@@ -53,22 +53,22 @@ export interface AgoraVoiceAIEventHandlers {
    * Fired when the agent state changes via RTM presence event.
    * @deprecated This aggregate event remains supported. Use the independent
    * activity events when multiple flags are needed.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.AGENT_STATE_CHANGED]: (agentUserId: string, event: StateChangeEvent) => void;
   /**
    * Fired when the agent listening flag changes via RTM presence event.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.AGENT_LISTENING_CHANGED]: (agentUserId: string, isListening: boolean) => void;
   /**
    * Fired when the agent thinking flag changes via RTM presence event.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.AGENT_THINKING_CHANGED]: (agentUserId: string, isThinking: boolean) => void;
   /**
    * Fired when the agent speaking flag changes via RTM presence event.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED]: (agentUserId: string, isSpeaking: boolean) => void;
   [AgoraVoiceAIEvents.AGENT_INTERRUPTED]: (
@@ -81,7 +81,7 @@ export interface AgoraVoiceAIEventHandlers {
   [AgoraVoiceAIEvents.AGENT_METRICS]: (agentUserId: string, metrics: AgentMetric) => void;
   /**
    * Fired when the agent reports completed-turn latency metrics.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.AGENT_TURN_FINISHED]: (agentUserId: string, turn: Turn) => void;
   [AgoraVoiceAIEvents.AGENT_ERROR]: (agentUserId: string, error: ModuleError) => void;
@@ -91,7 +91,7 @@ export interface AgoraVoiceAIEventHandlers {
   [AgoraVoiceAIEvents.DEBUG_LOG]: (message: string) => void;
   /**
    * Fired when a message receipt is updated via RTM.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.MESSAGE_RECEIPT_UPDATED]: (
     agentUserId: string,
@@ -99,7 +99,7 @@ export interface AgoraVoiceAIEventHandlers {
   ) => void;
   /**
    * Fired when a message error is received via RTM.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.MESSAGE_ERROR]: (
     agentUserId: string,
@@ -112,7 +112,7 @@ export interface AgoraVoiceAIEventHandlers {
   ) => void;
   /**
    * Fired when a SAL status update is received via RTM.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.MESSAGE_SAL_STATUS]: (
     agentUserId: string,
@@ -120,17 +120,17 @@ export interface AgoraVoiceAIEventHandlers {
   ) => void;
   /**
    * Fired when the server returns the result for a user-triggered manual SOS request.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.USER_MANUAL_SOS]: (agentUserId: string, event: UserManualSosEvent) => void;
   /**
    * Fired when the server returns the result for a user-triggered manual EOS request.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.USER_MANUAL_EOS]: (agentUserId: string, event: UserManualEosEvent) => void;
   /**
    * Fired when the server reports an automatic EOS in manual mode.
-   * @remarks Only available when `rtmConfig` is provided to `init()`.
+   * @remarks Only available when `rtmEngine` is provided to `init()`.
    */
   [AgoraVoiceAIEvents.AGENT_MANUAL_EOS]: (agentUserId: string, event: AgentManualEosEvent) => void;
 }
