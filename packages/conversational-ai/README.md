@@ -28,7 +28,7 @@ await rtmClient.login({ token: 'YOUR_RTM_TOKEN' });
 // 2. Initialize the AI singleton
 const ai = await AgoraVoiceAI.init({
   rtcEngine: rtcClient,
-  rtmConfig: { rtmEngine: rtmClient },
+  rtmEngine: rtmClient,
   renderMode: TranscriptHelperMode.WORD,
 });
 
@@ -95,9 +95,10 @@ The following parameters must be set when starting the AI agent via the Agora RE
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `rtcEngine` | `RTCEngine` | Yes | Structural RTC client contract (`on/off` for `'audio-pts'` and `'stream-message'`) |
-| `rtmConfig` | `{ rtmEngine: RTMEngine }` | No | Structural RTM client contract (`publish`, `addEventListener`, `removeEventListener`) |
+| `rtmEngine` | `RTMEngine` | No | Structural RTM client contract (`publish`, `addEventListener`, `removeEventListener`) |
 | `renderMode` | `TranscriptHelperMode` | No | `TEXT`, `WORD`, `CHUNK`, or `AUTO`. If omitted, defaults to `AUTO` — mode is detected from the first agent message. |
 | `enableLog` | `boolean` | No | Enable debug logging (default: `false`) |
+| `enableRenderModeFallback` | `boolean` | No | Fall back from `WORD` to `TEXT` when word timing data is missing (default: `true`) |
 | `enableAgoraMetrics` | `boolean` | No | Load `@agora-js/report` for usage metrics (default: `false`) |
 
 `RTCEngine` and `RTMEngine` are toolkit-exported structural interfaces. A normal `agora-rtc-sdk-ng` client and `agora-rtm` client satisfy them directly, and no `as unknown as` casts are required.
@@ -119,13 +120,13 @@ AgoraVoiceAI.getInstance(): AgoraVoiceAI  // throws NotInitializedError if not y
 ai.subscribeMessage(channel: string): void
 ai.unsubscribe(): void
 ai.chat(agentUserId: string, message: ChatMessageText | ChatMessageImage): Promise<void>
-ai.sendText(agentUserId: string, message: ChatMessageText): Promise<void>   // requires rtmConfig
-ai.sendImage(agentUserId: string, message: ChatMessageImage): Promise<void> // requires rtmConfig
-ai.interrupt(agentUserId: string): Promise<void>                            // requires rtmConfig
-ai.manualSOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmConfig
-ai.manualEOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmConfig
+ai.sendText(agentUserId: string, message: ChatMessageText): Promise<void>   // requires rtmEngine
+ai.sendImage(agentUserId: string, message: ChatMessageImage): Promise<void> // requires rtmEngine
+ai.interrupt(agentUserId: string): Promise<void>                            // requires rtmEngine
+ai.manualSOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmEngine
+ai.manualEOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmEngine
 ai.destroy(): void
-ai.getCfg(): { rtcEngine, renderMode, channel, enableLog }
+ai.getCfg(): { rtcEngine, rtmEngine, renderMode, channel, enableLog, enableRenderModeFallback }
 ai.on(event, handler): void
 ai.off(event, handler): void
 ```
@@ -170,7 +171,7 @@ Word-level timing is at `metadata.words` — not at the top level.
 
 ---
 
-#### Agent activity events _(requires `rtmConfig`)_
+#### Agent activity events _(requires `rtmEngine`)_
 
 Use the independent activity events for new integrations. More than one flag
 may be active at the same time.
@@ -191,7 +192,7 @@ ai.on(AgoraVoiceAIEvents.AGENT_SPEAKING_CHANGED, (agentUserId, active) => {
 
 ---
 
-#### `AGENT_STATE_CHANGED` _(deprecated, requires `rtmConfig`)_
+#### `AGENT_STATE_CHANGED` _(deprecated, requires `rtmEngine`)_
 
 This event is deprecated but remains supported and continues to be emitted.
 Existing integrations do not need to migrate. Use the independent activity
@@ -255,7 +256,7 @@ ai.on(AgoraVoiceAIEvents.AGENT_ERROR, (agentUserId, error) => {
 
 ---
 
-#### `MESSAGE_RECEIPT_UPDATED` _(requires `rtmConfig`)_
+#### `MESSAGE_RECEIPT_UPDATED` _(requires `rtmEngine`)_
 
 Fires when a delivery or read receipt is received for a sent message.
 
@@ -269,7 +270,7 @@ ai.on(AgoraVoiceAIEvents.MESSAGE_RECEIPT_UPDATED, (agentUserId, receipt) => {
 
 ---
 
-#### `MESSAGE_ERROR` _(requires `rtmConfig`)_
+#### `MESSAGE_ERROR` _(requires `rtmEngine`)_
 
 Fires when a chat message fails to deliver.
 
@@ -283,7 +284,7 @@ ai.on(AgoraVoiceAIEvents.MESSAGE_ERROR, (agentUserId, error) => {
 
 ---
 
-#### `MESSAGE_SAL_STATUS` _(requires `rtmConfig`)_
+#### `MESSAGE_SAL_STATUS` _(requires `rtmEngine`)_
 
 Fires when the Speech Activity Level (SAL) registration status changes.
 
@@ -297,7 +298,7 @@ ai.on(AgoraVoiceAIEvents.MESSAGE_SAL_STATUS, (agentUserId, salStatus) => {
 
 ---
 
-#### `USER_MANUAL_SOS` / `USER_MANUAL_EOS` / `AGENT_MANUAL_EOS` _(requires `rtmConfig`)_
+#### `USER_MANUAL_SOS` / `USER_MANUAL_EOS` / `AGENT_MANUAL_EOS` _(requires `rtmEngine`)_
 
 Manual turn control is a two-step flow. `manualSOS()` and `manualEOS()` publish an RTM marker and resolve with the `requestId` used in the payload. That only means RTM publish succeeded; server validation arrives later through events.
 
@@ -368,7 +369,7 @@ Advanced: implement `IMetricsReporter` or use the exported `ConsoleMetricsReport
 | Error Class | When Thrown | Recovery |
 |------------|------------|----------|
 | `NotInitializedError` | `getInstance()` or `getCfg()` called before `init()` | Call `await AgoraVoiceAI.init(config)` first |
-| `RTMRequiredError` | `sendText()`, `sendImage()`, `interrupt()`, `manualSOS()`, or `manualEOS()` called without RTM | Pass `rtmConfig: { rtmEngine }` in `init()` config |
+| `RTMRequiredError` | `sendText()`, `sendImage()`, `interrupt()`, `manualSOS()`, or `manualEOS()` called without RTM | Pass `rtmEngine` in `init()` config |
 | `ConversationalAIError` | `chat()` called with unsupported message type | Check `message.messageType` is TEXT or IMAGE |
 
 All error classes extend `ConversationalAIError`, which extends `Error`. Use `instanceof` to catch specific error types.
@@ -400,7 +401,7 @@ try {
   });
 } catch (e) {
   if (e instanceof RTMRequiredError) {
-    console.error('RTM not configured — pass rtmConfig to init()');
+    console.error('RTM not configured — pass rtmEngine to init()');
   }
 }
 
@@ -455,11 +456,11 @@ See the [Agora Conversational AI documentation](https://docs.agora.io/en/convers
 
 **Cause:** Standalone hooks (`useTranscript`, `useAgentState`, etc.) need access to the `AgoraVoiceAI` instance. Without a `ConversationalAIProvider`, they fall back to a single `getInstance()` attempt which may miss the instance if `init()` hasn't completed yet.
 
-**Fix:** Wrap your component tree in `ConversationalAIProvider` so standalone hooks connect through React context. Pass `rtmConfig` when the child hooks consume RTM-backed state or controls:
+**Fix:** Wrap your component tree in `ConversationalAIProvider` so standalone hooks connect through React context. Pass `rtmEngine` when the child hooks consume RTM-backed state or controls:
 
 ```tsx
 <ConversationalAIProvider
-  config={{ channel: 'my-channel', rtmConfig: { rtmEngine: rtmClient } }}
+  config={{ channel: 'my-channel', rtmEngine: rtmClient }}
 >
   <TranscriptPanel />  {/* useTranscript() connects via context */}
   <StatusBar />         {/* useAgentState() connects via context */}

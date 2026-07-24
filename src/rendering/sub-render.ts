@@ -126,6 +126,7 @@ export class CovSubRenderController {
 
   private _enableLog: boolean;
   private _mode: TranscriptHelperMode = TranscriptHelperMode.UNKNOWN;
+  private _enableRenderModeFallback: boolean = true;
   private _agentMessageState: {
     state: AgentState;
     turn_id: string | number;
@@ -625,7 +626,15 @@ export class CovSubRenderController {
    * Sets the transcript rendering mode. Can only be called once — subsequent
    * calls after mode is locked (not UNKNOWN or AUTO) are ignored with a warning.
    */
-  public setMode(mode: TranscriptHelperMode) {
+  public setMode(
+    mode: TranscriptHelperMode,
+    options?: {
+      enableRenderModeFallback?: boolean;
+    }
+  ) {
+    if (options?.enableRenderModeFallback !== undefined) {
+      this._enableRenderModeFallback = options.enableRenderModeFallback;
+    }
     // Allow setting from UNKNOWN (initial) or AUTO (transitioning to detected mode).
     // Any other existing mode is considered already locked.
     if (this._mode !== TranscriptHelperMode.UNKNOWN && this._mode !== TranscriptHelperMode.AUTO) {
@@ -648,6 +657,20 @@ export class CovSubRenderController {
     }
     this.callMessagePrint(ELoggerType.debug, `setMode`, mode);
     this._mode = mode;
+  }
+
+  private _fallbackToTextMode(reason: string) {
+    if (this._mode === TranscriptHelperMode.TEXT) {
+      return;
+    }
+    this.callMessagePrint(
+      ELoggerType.warn,
+      '[Fallback]',
+      `Switching render mode to TEXT: ${reason}`
+    );
+    this._pts.teardownInterval();
+    this._queue.clearPendingItems();
+    this._mode = TranscriptHelperMode.TEXT;
   }
 
   public handleMessage<T extends TranscriptionBase>(
@@ -692,6 +715,12 @@ export class CovSubRenderController {
     }
 
     if (isAgentMessage && this._mode === TranscriptHelperMode.WORD) {
+      const hasWordData = Array.isArray(message.words) && message.words.length > 0;
+      if (this._enableRenderModeFallback && !hasWordData) {
+        this._fallbackToTextMode('word data missing');
+        this.handleTextMessage(options.publisher, message as unknown as AgentTranscription);
+        return;
+      }
       this._pts.setupIntervalForWords({ isForce: false });
       this.handleWordAgentMessage(options.publisher, message as unknown as AgentTranscription);
       return;

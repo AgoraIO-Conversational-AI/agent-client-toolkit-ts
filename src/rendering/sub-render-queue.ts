@@ -99,6 +99,11 @@ export class SubRenderQueue {
     }
   }
 
+  public clearPendingItems() {
+    this.queue = [];
+    this.lastPoppedQueueItem = null;
+  }
+
   private _handleTurnObj(queueItem: QueueItem, curPTS: number) {
     let correspondingChatHistoryItem = this.chatHistory.find(
       (item) => item.turn_id === queueItem.turn_id && item.stream_id === queueItem.stream_id

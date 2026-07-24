@@ -1,6 +1,6 @@
 {
   "name": "agora-agent-client-toolkit",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Agora Agent Client Toolkit — real-time voice agent integration for web",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

@@ -148,7 +148,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const stateHandler = vi.fn();
     const listeningHandler = vi.fn();
@@ -189,7 +189,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const stateHandler = vi.fn();
     const listeningHandler = vi.fn();
@@ -215,7 +215,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const stateHandler = vi.fn();
 
@@ -244,7 +244,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const listeningHandler = vi.fn();
 
@@ -276,7 +276,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const stateHandler = vi.fn();
     const listeningHandler = vi.fn();
@@ -321,7 +321,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const stateHandler = vi.fn();
     const listeningHandler = vi.fn();
@@ -364,7 +364,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const handler = vi.fn();
 
@@ -415,7 +415,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const handler = vi.fn();
     ai.on(AgoraVoiceAIEvents.USER_MANUAL_SOS, handler);
@@ -452,7 +452,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const handler = vi.fn();
     ai.on(AgoraVoiceAIEvents.USER_MANUAL_EOS, handler);
@@ -489,7 +489,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const handler = vi.fn();
     ai.on(AgoraVoiceAIEvents.AGENT_MANUAL_EOS, handler);
@@ -525,7 +525,7 @@ describe('AgoraVoiceAI event handlers', () => {
     const rtm = createMockRTMClient();
     const ai = await AgoraVoiceAI.init({
       rtcEngine: rtc as never,
-      rtmConfig: { rtmEngine: rtm as never },
+      rtmEngine: rtm as never,
     });
     const handler = vi.fn();
     ai.on(AgoraVoiceAIEvents.AGENT_MANUAL_EOS, handler);

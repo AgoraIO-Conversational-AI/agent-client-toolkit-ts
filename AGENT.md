@@ -36,7 +36,7 @@ pnpm --filter <name> typecheck
 Exports from `agora-agent-client-toolkit`:
 
 - `AgoraVoiceAI` — main singleton class (async `init()`)
-- `AgoraVoiceAIConfig`, `RTMConfig` — config interfaces
+- `AgoraVoiceAIConfig` — config interface
 - `AgoraVoiceAIEvents` — event name constants
 - `CovSubRenderController` — transcript rendering controller
 - `ChunkedMessageAssembler` — stream message assembly
@@ -54,7 +54,7 @@ Exports from `agora-agent-client-toolkit-react`:
 ## Constraints
 
 - **Do not modify `CovSubRenderController`** without explicit task scope. It is battle-tested rendering logic; bugs here are silent and hard to reproduce without real agent traffic.
-- **RTM is optional** — never assume `rtmEngine` is present. Use `rtmConfig?.rtmEngine`.
+- **RTM is optional** — never assume `rtmEngine` is present.
 - **`AgoraVoiceAI.init()` is async** — always `await`.
 - **pnpm only** — no npm or yarn commands.
 - **`jszip` and `@agora-js/report` are optional deps** — guard all usages.
@@ -65,7 +65,7 @@ Exports from `agora-agent-client-toolkit-react`:
 // Core config
 interface AgoraVoiceAIConfig {
   rtcEngine: IAgoraRTCClient;       // required
-  rtmConfig?: { rtmEngine: RTMClient }; // optional
+  rtmEngine?: RTMClient;            // optional
   renderMode?: TranscriptHelperMode; // TEXT | WORD | AUTO
   enableLog?: boolean;
   enableAgoraMetrics?: boolean;

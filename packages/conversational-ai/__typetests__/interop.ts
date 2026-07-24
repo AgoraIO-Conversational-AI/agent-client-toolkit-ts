@@ -1,7 +1,51 @@
+import {
+  ConversationalAIAPI,
+  EAgentState,
+  EChatMessagePriority,
+  EChatMessageType,
+  EConversationalAIAPIEvents,
+  ELocalTranscriptStatus,
+  EMessageSalStatus,
+  EMessageType,
+  EModuleType,
+  ERTCCustomEvents,
+  ERTCEvents,
+  ERTMEvents,
+  ETranscriptHelperMode,
+  ETurnStatus,
+  NotFoundError,
+} from '../../../src';
 import type {
   AgoraVoiceAIConfig,
+  IAgentTranscription,
+  IChatMessageBase,
+  IChatMessageImage,
+  IChatMessageText,
+  IConversationalAIAPIConfig,
+  IConversationalAIAPIEventHandlers,
+  IHelperRTCEvents,
+  ILocalImageTranscription,
+  ILocalTranscriptionBase,
+  IMessageError,
+  IMessageInterrupt,
+  IMessageMetrics,
+  IMessageSalStatus,
+  IPresenceState,
+  ITranscriptHelperItem,
+  ITranscriptionBase,
+  ITurnFinishedMessage,
+  IUserTracks,
+  IUserTranscription,
   RTCEngine,
   RTMEngine,
+  TAgentMetric,
+  TAgentTurnFinished,
+  TDataChunkMessageWord,
+  TMessageReceipt,
+  TModuleError,
+  TQueueItem,
+  TStateChangeEvent,
+  TTranscriptHelperObjectWord,
 } from '../../../src';
 
 declare const foreignRtcClient: {
@@ -42,11 +86,40 @@ const rtmEngine = acceptsRtmEngine(foreignRtmClient);
 
 const config: AgoraVoiceAIConfig = {
   rtcEngine,
-  rtmConfig: {
-    rtmEngine,
-  },
+  rtmEngine,
+  enableRenderModeFallback: true,
 };
 const rtcOnlyConfig: AgoraVoiceAIConfig = { rtcEngine };
+const legacyRtcOnlyConfig: IConversationalAIAPIConfig = rtcOnlyConfig;
+const legacyConfig: IConversationalAIAPIConfig = {
+  rtcEngine,
+  rtmEngine,
+  renderMode: ETranscriptHelperMode.WORD,
+  enableLog: false,
+  enableRenderModeFallback: true,
+};
+
+async function initLegacySourceNames() {
+  const api = await ConversationalAIAPI.init(legacyConfig);
+  api.on(EConversationalAIAPIEvents.TRANSCRIPT_UPDATED, () => undefined);
+}
+
+const legacyEnumExports = [
+  EAgentState,
+  EChatMessagePriority,
+  EChatMessageType,
+  EConversationalAIAPIEvents,
+  ELocalTranscriptStatus,
+  EMessageSalStatus,
+  EMessageType,
+  EModuleType,
+  ERTCCustomEvents,
+  ERTCEvents,
+  ERTMEvents,
+  ETranscriptHelperMode,
+  ETurnStatus,
+  NotFoundError,
+];
 
 declare const strictRtcEngine: RTCEngine;
 strictRtcEngine.on('audio-pts', (pts) => {
@@ -75,3 +148,7 @@ strictRtcEngine.on('stream-message', (pts: number) => {
 
 void config;
 void rtcOnlyConfig;
+void legacyRtcOnlyConfig;
+void legacyConfig;
+void initLegacySourceNames;
+void legacyEnumExports;

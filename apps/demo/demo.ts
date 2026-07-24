@@ -61,7 +61,7 @@ console.log('✓ RTM Client created');
  *
  * Options:
  * - rtcEngine: Your RTC client instance (required)
- * - rtmConfig: Optional RTM config object — omit to run RTC-only
+ * - rtmEngine: Optional RTM client — omit to run RTC-only
  *   (sendText, sendImage, and interrupt will throw if RTM is absent)
  * - renderMode: Transcript rendering mode (TEXT, WORD, CHUNK, AUTO, UNKNOWN)
  * - enableLog:  Enable debug logging
@@ -70,7 +70,7 @@ console.log('✓ RTM Client created');
 async function initVoiceAI() {
   const voiceAI = await AgoraVoiceAI.init({
     rtcEngine: rtcClient,
-    rtmConfig: { rtmEngine: rtmClient },
+    rtmEngine: rtmClient,
     renderMode: TranscriptHelperMode.TEXT,
     enableLog: true,
   });

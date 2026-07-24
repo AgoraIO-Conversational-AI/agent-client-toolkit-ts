@@ -17,7 +17,7 @@ pnpm add agora-agent-client-toolkit-react agora-agent-client-toolkit agora-rtc-r
 
 ## Migration
 
-Upgrading from an earlier release? See the [migration guide](./MIGRATION.md), including the steps for `1.2.x -> 2.9.0`.
+Upgrading from an earlier release? See the [migration guide](./MIGRATION.md), including the steps for `2.9.0 -> 2.9.1`.
 
 ### Optional dependencies
 
@@ -58,7 +58,7 @@ rtcClient.on('user-published', async (user, mediaType) => {
 // --- Add Conversational AI features ---
 const ai = await AgoraVoiceAI.init({
   rtcEngine: rtcClient,
-  rtmConfig: { rtmEngine: rtmClient },
+  rtmEngine: rtmClient,
 });
 
 ai.on(AgoraVoiceAIEvents.TRANSCRIPT_UPDATED, (transcript) => {
@@ -113,7 +113,7 @@ function App() {
   const config = useMemo(
     () => ({
       channel: 'my-channel',
-      rtmConfig: { rtmEngine: rtmClient },
+      rtmEngine: rtmClient,
     }),
     []
   );
@@ -155,20 +155,20 @@ function VoiceSession() {
 
 | Package                                                                      | Version | Description                        |
 | ---------------------------------------------------------------------------- | ------- | ---------------------------------- |
-| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md)       | 2.9.0   | Core SDK — vanilla JS / TypeScript |
-| [`agora-agent-client-toolkit-react`](./packages/react/README.md)             | 2.9.0   | React hooks                        |
+| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md)       | 2.9.1   | Core SDK — vanilla JS / TypeScript |
+| [`agora-agent-client-toolkit-react`](./packages/react/README.md)             | 2.9.1   | React hooks                        |
 
 Full API reference, configuration options, and events are in each package's README.
 
 ## RTC-only mode (no RTM)
 
-RTM is optional. Transcripts and agent state work without it — just omit `rtmConfig`:
+RTM is optional. Transcripts and agent state work without it — just omit `rtmEngine`:
 
 ```typescript
 const ai = await AgoraVoiceAI.init({ rtcEngine: rtcClient });
 ```
 
-RTM-backed methods throw without `rtmConfig`: `sendText`, `sendImage`, `interrupt`, `manualSOS`, and `manualEOS`.
+RTM-backed methods throw without `rtmEngine`: `sendText`, `sendImage`, `interrupt`, `manualSOS`, and `manualEOS`.
 
 ## Repository layout
 

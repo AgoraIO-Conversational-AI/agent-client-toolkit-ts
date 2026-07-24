@@ -7,7 +7,7 @@ For RTC primitives (microphone tracks, camera tracks, remote users, volume level
 ## Install
 
 ```bash
-pnpm add agora-agent-client-toolkit-react@2.9.0 agora-agent-client-toolkit@2.9.0 agora-rtc-react agora-rtc-sdk-ng agora-rtm
+pnpm add agora-agent-client-toolkit-react@2.9.1 agora-agent-client-toolkit@2.9.1 agora-rtc-react agora-rtc-sdk-ng agora-rtm
 ```
 
 Keep `agora-agent-client-toolkit-react` and `agora-agent-client-toolkit` on the same version.
@@ -32,7 +32,7 @@ await rtmClient.login({ token: 'RTM_TOKEN' });
 
 function App() {
   const config = useMemo(
-    () => ({ channel: 'my-channel', rtmConfig: { rtmEngine: rtmClient } }),
+    () => ({ channel: 'my-channel', rtmEngine: rtmClient }),
     []
   );
 
@@ -62,7 +62,7 @@ Alternatively, use `useConversationalAI` directly for a batteries-included hook:
 ```tsx
 function VoiceAI() {
   const config = useMemo(
-    () => ({ channel: 'my-channel', rtmConfig: { rtmEngine: rtmClient } }),
+    () => ({ channel: 'my-channel', rtmEngine: rtmClient }),
     []
   );
   const { transcript, agentState, isConnected, interrupt, manualSOS, manualEOS } =
@@ -91,7 +91,7 @@ function VoiceAI() {
 | `agora-rtc-react` | >= 2.0.0 |
 | `agora-rtc-sdk-ng` | >= 4.23.4 |
 | `agora-rtm` | >= 2.0.0 (required for state events and controls) |
-| `agora-agent-client-toolkit` | 2.9.0 (same version as this package) |
+| `agora-agent-client-toolkit` | 2.9.1 (same version as this package) |
 
 ## API Reference
 
@@ -102,7 +102,7 @@ Provider component that manages the `AgoraVoiceAI` lifecycle and exposes the AI 
 ```tsx
 <AgoraRTCProvider client={rtcClient}>
   <ConversationalAIProvider
-    config={{ channel: 'my-channel', rtmConfig: { rtmEngine: rtmClient } }}
+    config={{ channel: 'my-channel', rtmEngine: rtmClient }}
   >
     {/* standalone hooks connect instantly via context */}
     <TranscriptPanel />
@@ -140,10 +140,10 @@ const {
 | `agentState` | `AgentState \| null` | Current agent state (`'idle'`, `'listening'`, `'thinking'`, `'speaking'`, `'silent'`). Null until the first event. |
 | `isConnected` | `boolean` | `true` after `subscribeMessage` succeeds. |
 | `error` | `ModuleError \| null` | Most recent error from `AGENT_ERROR`. Null until an error occurs. |
-| `interrupt` | `(agentUserId: string) => Promise<void>` | Send an interrupt signal to the agent. Requires `rtmConfig`. |
-| `manualSOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual start-of-speech and return the request ID. Requires `rtmConfig`. |
-| `manualEOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual end-of-speech and return the request ID. Requires `rtmConfig`. |
-| `sendMessage` | `(agentUserId: string, text: string) => Promise<void>` | Send a text message to the agent. Requires `rtmConfig`. |
+| `interrupt` | `(agentUserId: string) => Promise<void>` | Send an interrupt signal to the agent. Requires `rtmEngine`. |
+| `manualSOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual start-of-speech and return the request ID. Requires `rtmEngine`. |
+| `manualEOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual end-of-speech and return the request ID. Requires `rtmEngine`. |
+| `sendMessage` | `(agentUserId: string, text: string) => Promise<void>` | Send a text message to the agent. Requires `rtmEngine`. |
 | `metrics` | `AgentMetric \| null` | Latest metric from `AGENT_METRICS` (module type, name, value, timestamp). |
 | `messageReceipt` | `MessageReceipt \| null` | Latest delivery receipt from `MESSAGE_RECEIPT_UPDATED`. |
 

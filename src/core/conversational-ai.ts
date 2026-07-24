@@ -1,10 +1,4 @@
-import type {
-  AgoraVoiceAIConfig,
-  RTCEngine,
-  RTMConfig,
-  RTMEngine,
-  RTCStreamMessagePublisher,
-} from './config';
+import type { AgoraVoiceAIConfig, RTCEngine, RTMEngine, RTCStreamMessagePublisher } from './config';
 
 import {
   type AgentState,
@@ -55,13 +49,13 @@ import { CovSubRenderController } from '../rendering/sub-render';
 import { ChunkedMessageAssembler } from '../messaging/chunked';
 
 const TAG = 'AgoraVoiceAI';
-const VERSION = '2.9.0';
+const VERSION = '2.9.1';
 
 const formatLog = factoryFormatLog({ tag: TAG });
 const USER_MANUAL_SOS_CUSTOM_TYPE = 'user.manual_sos';
 const USER_MANUAL_EOS_CUSTOM_TYPE = 'user.manual_eos';
 
-export type { AgoraVoiceAIConfig, RTMConfig };
+export type { AgoraVoiceAIConfig } from './config';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -203,6 +197,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
   protected rtcEngine: RTCEngine | null = null;
   protected rtmEngine: RTMEngine | null = null;
   protected renderMode: TranscriptHelperMode = TranscriptHelperMode.UNKNOWN;
+  protected enableRenderModeFallback: boolean = true;
   protected channel: string | null = null;
   protected covSubRenderController: CovSubRenderController;
   protected enableLog: boolean = false;
@@ -320,12 +315,14 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       renderMode: this.renderMode,
       channel: this.channel,
       enableLog: this.enableLog,
+      rtmEngine: this.rtmEngine,
+      enableRenderModeFallback: this.enableRenderModeFallback,
     };
   }
 
   /**
    * Requires RTM to be configured. Throws a descriptive error when called
-   * without rtmConfig. Used internally by sendText, sendImage, and interrupt.
+   * without rtmEngine. Used internally by sendText, sendImage, and interrupt.
    */
   private requireRTM(method = 'requireRTM'): RTMEngine {
     if (!this.rtmEngine) {
@@ -387,7 +384,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
     assertFunction('rtcEngine', 'rtcEngine.on(eventName, listener)', rtcEngine?.on);
     assertFunction('rtcEngine', 'rtcEngine.off(eventName, listener)', rtcEngine?.off);
 
-    const rtmEngine = cfg.rtmConfig?.rtmEngine as unknown as
+    const rtmEngine = cfg.rtmEngine as unknown as
       | {
           publish?: unknown;
           addEventListener?: unknown;
@@ -437,8 +434,9 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
     }
 
     AgoraVoiceAI._instance.rtcEngine = cfg.rtcEngine;
-    AgoraVoiceAI._instance.rtmEngine = cfg.rtmConfig?.rtmEngine ?? null;
+    AgoraVoiceAI._instance.rtmEngine = cfg.rtmEngine ?? null;
     AgoraVoiceAI._instance.renderMode = cfg.renderMode ?? TranscriptHelperMode.UNKNOWN;
+    AgoraVoiceAI._instance.enableRenderModeFallback = cfg.enableRenderModeFallback ?? true;
     AgoraVoiceAI._instance.enableLog = cfg.enableLog ?? false;
     AgoraVoiceAI._instance.setLogLevel(cfg.enableLog ? EventLogLevel.DEBUG : EventLogLevel.NONE);
     AgoraVoiceAI._instance.metricsReporter = reporter;
@@ -467,7 +465,9 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
     }
 
     this.channel = channel;
-    this.covSubRenderController.setMode(this.renderMode);
+    this.covSubRenderController.setMode(this.renderMode, {
+      enableRenderModeFallback: this.enableRenderModeFallback,
+    });
     this.covSubRenderController.run();
     this._startEventTimeoutWarnings();
   }
@@ -512,6 +512,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
     instance.unbindRtmEvents();
     instance.rtmEngine = null;
     instance.renderMode = TranscriptHelperMode.UNKNOWN;
+    instance.enableRenderModeFallback = true;
     instance.channel = null;
     instance.removeAllEventListeners();
     AgoraVoiceAI._instance = null;
@@ -769,7 +770,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
    * @param agentUserId - The user ID of the agent to send the marker to
    * @param requestId - Optional non-empty request ID. Generated when omitted.
    * @returns The request ID used in the RTM payload
-   * @remarks Requires `rtmConfig` to be present in `init()`.
+   * @remarks Requires `rtmEngine` to be present in `init()`.
    */
   public async manualSOS(agentUserId: string, requestId?: string): Promise<string> {
     return this.publishManualTurn(
@@ -790,7 +791,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
    * @param agentUserId - The user ID of the agent to send the marker to
    * @param requestId - Optional non-empty request ID. Generated when omitted.
    * @returns The request ID used in the RTM payload
-   * @remarks Requires `rtmConfig` to be present in `init()`.
+   * @remarks Requires `rtmEngine` to be present in `init()`.
    */
   public async manualEOS(agentUserId: string, requestId?: string): Promise<string> {
     return this.publishManualTurn(

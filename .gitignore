@@ -142,3 +142,5 @@ vite.config.ts.timestamp-*
 
 # macOS Finder metadata
 .DS_Store
+
+/apps/web-demo/
