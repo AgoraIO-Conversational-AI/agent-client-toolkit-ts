@@ -15,6 +15,7 @@ import {
   AgoraVoiceAIEvents,
   ChatMessageType,
   ChatMessagePriority,
+  ThinkListeningAction,
   TranscriptHelperMode,
   AgentState,
 } from 'agora-agent-client-toolkit';
@@ -62,7 +63,7 @@ console.log('✓ RTM Client created');
  * Options:
  * - rtcEngine: Your RTC client instance (required)
  * - rtmEngine: Optional RTM client — omit to run RTC-only
- *   (sendText, sendImage, and interrupt will throw if RTM is absent)
+ *   (sendText, sendImage, speak, think, and interrupt will throw if RTM is absent)
  * - renderMode: Transcript rendering mode (TEXT, WORD, CHUNK, AUTO, UNKNOWN)
  * - enableLog:  Enable debug logging
  * - enableAgoraMetrics: Load @agora-js/report dynamically (default: false)
@@ -197,6 +198,24 @@ async function sendImageMessage(voiceAI: AgoraVoiceAI, imageUrl: string) {
   console.log('✓ Image message sent');
 }
 
+async function speakMessage(voiceAI: AgoraVoiceAI, text: string) {
+  await voiceAI.speak(CONFIG.agentUserId, {
+    text,
+    priority: ChatMessagePriority.INTERRUPTED,
+    interruptable: true,
+  });
+  console.log('✓ Speak message sent');
+}
+
+async function thinkMessage(voiceAI: AgoraVoiceAI, text: string) {
+  await voiceAI.think(CONFIG.agentUserId, {
+    text,
+    onListeningAction: ThinkListeningAction.INTERRUPT,
+    metadata: { source: 'vanilla-demo' },
+  });
+  console.log('✓ Think message sent');
+}
+
 async function interruptAgent(voiceAI: AgoraVoiceAI) {
   console.log('⏸️ Interrupting agent...');
   await voiceAI.interrupt(CONFIG.agentUserId);
@@ -239,7 +258,15 @@ async function main() {
   }
 }
 
-export { main, sendTextMessage, sendImageMessage, interruptAgent, cleanup };
+export {
+  main,
+  sendTextMessage,
+  sendImageMessage,
+  speakMessage,
+  thinkMessage,
+  interruptAgent,
+  cleanup,
+};
 
 // Uncomment to run automatically:
 // main();
