@@ -1,0 +1,40 @@
+name: Docker
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: toolkit-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: |
+          docker run -d --name smoke -p 8002:8002 \
+            -e AGORA_APP_ID=0123456789abcdef0123456789abcdef \
+            -e AGORA_APP_CERTIFICATE=fedcba9876543210fedcba9876543210 \
+            toolkit-backend:ci
+          ok=""
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8002/get_config -o /dev/null; then ok=1; break; fi
+            sleep 1
+          done
+          [ -z "$ok" ] && { docker logs smoke; docker rm -f smoke; exit 1; }
+          docker rm -f smoke

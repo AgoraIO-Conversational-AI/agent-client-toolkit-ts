@@ -1,0 +1,8 @@
+**
+!Dockerfile
+!apps/
+!apps/playground/
+!apps/playground/server/
+!apps/playground/server/requirements.txt
+!apps/playground/server/src/
+!apps/playground/server/src/**
