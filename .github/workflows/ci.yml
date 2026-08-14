@@ -1,6 +1,13 @@
 name: CI
 
 on:
+  workflow_dispatch:
+    inputs:
+      publish_packages:
+        description: Publish the current package versions to npm
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [main]
     tags:
@@ -108,9 +115,42 @@ jobs:
             echo "| agora-agent-client-toolkit-react | ${react_lines}% | ${react_branches}% | ${react_functions}% | ${react_statements}% |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  playground:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@v5
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set up playground server
+        working-directory: apps/playground/server
+        run: |
+          uv venv
+          uv pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Check playground server sources
+        working-directory: apps/playground/server
+        run: .venv/bin/python -m py_compile src/*.py
+
+      - name: Build playground
+        run: pnpm --filter agora-conversational-ai-playground build
+
+      - name: Test playground
+        run: pnpm --filter agora-conversational-ai-playground test
+
   publish:
-    needs: [build-and-test]
-    if: (github.event_name == 'push' && contains(github.ref, 'refs/tags/')) || github.event_name == 'workflow_dispatch'
+    needs: [build-and-test, playground]
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && inputs.publish_packages)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -135,7 +175,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm build

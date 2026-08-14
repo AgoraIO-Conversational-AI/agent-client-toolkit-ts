@@ -15,6 +15,26 @@ Migration notes for each release should link to the matching section in [MIGRATI
   `AGENT_STATE_CHANGED` remains supported and emitted; React `agentState` APIs
   remain the aggregate compatibility surface.
 
+## [v2.10.0] - 2026-08-13
+
+### Added
+
+- Added RTM-backed `speak(agentUserId, message)` for direct agent TTS with interrupt, append, and ignore priorities.
+- Added RTM-backed `think(agentUserId, message)` with independent listening, thinking, and speaking actions, including append behavior and optional metadata.
+- Added matching React hook/context controls.
+- Migrated the full local Web validation app and its FastAPI Agent server into
+  `apps/playground`, including Message API controls for all Speak priorities
+  and Think state actions.
+
+### Changed
+
+- Reused the existing `ChatMessagePriority` enum for direct speech requests.
+- Bumped the core and React npm packages to `2.10.0`.
+
+### Upgrade notes
+
+- Migration guide: see [MIGRATION.md#291---2100](./MIGRATION.md#291---2100).
+
 ## [v2.9.1] - 2026-07-20
 
 ### Fixed
@@ -72,6 +92,7 @@ First release candidate for the 2.9.0 ConvoAI API line.
 ### agora-agent-client-toolkit
 
 #### Changed
+
 - TypeScript public config contracts now use toolkit-owned structural interfaces: `RTCEngine` and `RTMEngine`
 - `AgoraVoiceAI.init()` now accepts compatible RTC/RTM client objects without requiring `as unknown as` casts in strict package-manager layouts
 - Public type surface no longer depends on `agora-rtm` event/class types (`RTMClient`, `RTMEvents`) for config and transcript event payload typing
@@ -80,12 +101,14 @@ First release candidate for the 2.9.0 ConvoAI API line.
 - Improved public API discoverability with expanded JSDoc for `AgoraVoiceAIConfig`, `renderMode`, React hooks, and `TranscriptHelperItem<T>` generic typing
 
 #### Added
+
 - Interop type-check fixture: `packages/conversational-ai/__typetests__/interop.ts` with `typecheck:interop` script
 - Coverage command surface (`test:coverage`) for root, core, and React packages
 - CI coverage summary output in GitHub Actions step summary
 - Additional lifecycle tests for invalid RTC/RTM engine inputs and React hook test coverage expansion
 
 #### Upgrade notes
+
 - Quick guide: see [MIGRATION.md#11x---120](./MIGRATION.md#11x---120) for `1.1.x -> 1.2.0`.
 - `AgoraVoiceAIConfig.rtcEngine` and `RTMConfig.rtmEngine` now use structural contracts (`RTCEngine`, `RTMEngine`) instead of peer SDK class/interface types.
 - Existing real Agora RTC/RTM clients continue to work without code changes.
@@ -99,6 +122,7 @@ First release candidate for the 2.9.0 ConvoAI API line.
 ### agora-agent-client-toolkit-react
 
 #### Changed
+
 - Removed internal `rtcEngine` cast workaround when passing `useRTCClient()` into `AgoraVoiceAI.init()`
 
 ## [v1.1.0] — 2026-03-17
@@ -106,6 +130,7 @@ First release candidate for the 2.9.0 ConvoAI API line.
 ### agora-agent-client-toolkit
 
 #### Fixed
+
 - `ChunkedMessageAssembler`: explicitly reject `rawPartIdx < 1` before normalization — a zero value from the wire (invalid for 1-based format) previously passed through silently as chunk index 0, causing incorrect message assembly
 - `ChunkedMessageAssembler`: simplified `part_idx` normalization to `rawPartIdx - 1` now that the `< 1` guard makes the conditional expression redundant
 - `CovSubRenderController`: fix uid resolution in `handleTextMessage` and `_handleTranscriptChunk` — uid is now determined by `message.object === MessageType.USER_TRANSCRIPTION` rather than `stream_id` presence, preventing agent transcriptions from being attributed to the wrong uid
@@ -114,6 +139,7 @@ First release candidate for the 2.9.0 ConvoAI API line.
 ### agora-agent-client-toolkit-react
 
 #### Fixed
+
 - `context.ts`: updated context exports to correctly reflect renamed core package imports
 
 ### Docs

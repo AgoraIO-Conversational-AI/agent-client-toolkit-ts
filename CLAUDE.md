@@ -23,7 +23,7 @@ src/                              ← edit source here
 packages/conversational-ai/       ← build config + package.json only
 packages/react/src/               ← React hooks source (self-contained)
 apps/demo/                        ← vanilla TS demo
-apps/playground/                  ← interactive playground
+apps/playground/                  ← full-stack React playground + FastAPI server
 ```
 
 ## Build
@@ -62,23 +62,23 @@ The rendering controller is the most complex and highest-risk module in the code
 
 - `AgoraVoiceAI` is a **singleton** — `init()` creates it, `getInstance()` retrieves it, `destroy()` clears it.
 - `AgoraVoiceAI.init()` is **async** — always `await` it.
-- RTM is **optional** — use the top-level `rtmEngine` field. RTM-backed methods throw if it is omitted.
+- RTM is **optional** — use the top-level `rtmEngine` field. RTM-backed methods, including `speak()` and `think()`, throw if it is omitted.
 - `AgoraVoiceAIConfig` is defined in `src/core/config.ts`. `src/core/conversational-ai.ts` re-exports it — don't define it there.
 
 ## Package names
 
-| What you type | Resolves to |
-|---------------|-------------|
-| `agora-agent-client-toolkit` | core SDK |
+| What you type                      | Resolves to |
+| ---------------------------------- | ----------- |
+| `agora-agent-client-toolkit`       | core SDK    |
 | `agora-agent-client-toolkit-react` | React hooks |
 
 ## Error event routing
 
 Two error events exist — do not conflate them:
 
-| Event | When it fires | Handler |
-|-------|--------------|---------|
-| `AGENT_ERROR` | Agent-side module error (TTS, STT, LLM failures) | `onAgentError(uid, { type, code, message, timestamp })` |
+| Event           | When it fires                                                                     | Handler                                                   |
+| --------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `AGENT_ERROR`   | Agent-side module error (TTS, STT, LLM failures)                                  | `onAgentError(uid, { type, code, message, timestamp })`   |
 | `MESSAGE_ERROR` | Client-side message delivery failure (image upload rejected, context parse error) | `onMessageError(uid, { type, code, message, timestamp })` |
 
 When adding error handling: agent runtime failures → `AGENT_ERROR`. Outbound message failures → `MESSAGE_ERROR`.

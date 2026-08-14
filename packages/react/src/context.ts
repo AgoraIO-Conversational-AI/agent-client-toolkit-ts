@@ -3,6 +3,8 @@ import {
   type AgoraVoiceAI,
   ChatMessageType,
   ChatMessagePriority,
+  type SpeakMessage,
+  type ThinkMessage,
 } from 'agora-agent-client-toolkit';
 
 export const AgoraVoiceAIContext = createContext<AgoraVoiceAI | null>(null);
@@ -29,6 +31,10 @@ export interface ConversationalAIContextValue {
   manualEOS: (agentUserId: string, requestId?: string) => Promise<string>;
   /** Send a plain-text message to the agent. Requires RTM. */
   sendMessage: (agentUserId: string, text: string) => Promise<void>;
+  /** Broadcast text directly through the agent's TTS pipeline. Requires RTM. */
+  speak: (agentUserId: string, message: SpeakMessage) => Promise<void>;
+  /** Send an instruction for the agent to process through the LLM. Requires RTM. */
+  think: (agentUserId: string, message: ThinkMessage) => Promise<void>;
   /** The underlying AgoraVoiceAI instance, or null if not yet initialized. */
   instance: AgoraVoiceAI | null;
 }
@@ -96,5 +102,19 @@ export function useConversationalAIContext(): ConversationalAIContextValue {
     [instance]
   );
 
-  return { interrupt, manualSOS, manualEOS, sendMessage, instance };
+  const speak = useCallback(
+    async (agentUserId: string, message: SpeakMessage) => {
+      await requireReadyInstance(instance).speak(agentUserId, message);
+    },
+    [instance]
+  );
+
+  const think = useCallback(
+    async (agentUserId: string, message: ThinkMessage) => {
+      await requireReadyInstance(instance).think(agentUserId, message);
+    },
+    [instance]
+  );
+
+  return { interrupt, manualSOS, manualEOS, sendMessage, speak, think, instance };
 }

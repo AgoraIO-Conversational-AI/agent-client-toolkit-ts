@@ -30,6 +30,8 @@ pnpm --filter agora-agent-client-toolkit-react test
 
 ```bash
 pnpm --filter agora-conversational-ai-demo dev  # see apps/demo/README.md
+# Requires local server credentials; see apps/playground/README.md
+pnpm --filter agora-conversational-ai-playground dev
 ```
 
 ## Project Structure
@@ -39,7 +41,7 @@ src/                              # Core SDK source (canonical location)
 packages/conversational-ai/       # Build config + package.json for core
 packages/react/src/               # React hooks source
 apps/demo/                        # Vanilla TS demo
-apps/playground/                  # Interactive playground
+apps/playground/                  # Full-stack React playground + FastAPI server
 ```
 
 `packages/conversational-ai/tsup.config.ts` points at `../../src` — edit source files in `src/`, not inside `packages/conversational-ai/`.
@@ -84,6 +86,7 @@ apps/playground/                  # Interactive playground
 ## Reporting Issues
 
 Open an issue on GitHub with:
+
 - Steps to reproduce
 - Expected vs actual behavior
 - SDK version and environment (browser, Node.js version)

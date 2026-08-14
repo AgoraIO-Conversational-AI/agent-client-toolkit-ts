@@ -1,11 +1,16 @@
 {
   "name": "agora-conversational-ai-playground",
-  "version": "1.2.0",
+  "version": "2.10.0",
   "private": true,
-  "description": "Component playground for agora-agent-client-toolkit-react",
+  "description": "Full-stack playground for agora-agent-client-toolkit validation",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit",
+    "dev": "node server/dev.mjs",
+    "dev:vite": "vite --host 127.0.0.1 --port 3000",
+    "backend:setup": "python3 -m venv server/.venv && server/.venv/bin/pip install -r server/requirements-dev.txt",
+    "server": "server/.venv/bin/python -m server.src.server",
+    "test:server": "server/.venv/bin/pytest server/tests",
+    "test": "pnpm run test:server && vitest run --dir src",
+    "build": "pnpm -C ../.. --filter ../../packages/conversational-ai run build && pnpm -C ../.. --filter ../../packages/react run build && tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -22,6 +27,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "typescript": "^5.3.3",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vitest": "^2.1.9"
   }
 }

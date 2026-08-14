@@ -407,6 +407,28 @@ export enum ChatMessagePriority {
   IGNORE = 'ignore',
 }
 
+/** Action to take when a think request arrives while the agent is listening. */
+export enum ThinkListeningAction {
+  INJECT = 'inject',
+  INTERRUPT = 'interrupt',
+  IGNORE = 'ignore',
+  APPEND = 'append',
+}
+
+/** Action to take when a think request arrives while the agent is thinking. */
+export enum ThinkThinkingAction {
+  INTERRUPT = 'interrupt',
+  IGNORE = 'ignore',
+  APPEND = 'append',
+}
+
+/** Action to take when a think request arrives while the agent is speaking. */
+export enum ThinkSpeakingAction {
+  INTERRUPT = 'interrupt',
+  IGNORE = 'ignore',
+  APPEND = 'append',
+}
+
 export enum ChatMessageType {
   TEXT = 'text',
   IMAGE = 'image',
@@ -429,6 +451,32 @@ export interface ChatMessageImage extends ChatMessageBase {
   uuid: string;
   url?: string;
   base64?: string;
+}
+
+/** A message that the agent broadcasts directly without LLM processing. */
+export interface SpeakMessage {
+  /** Text to synthesize and broadcast through the agent's TTS pipeline. */
+  text: string;
+  /** How to handle the request relative to the current interaction. Defaults to `INTERRUPTED` (wire value `INTERRUPT`). */
+  priority?: ChatMessagePriority;
+  /** Whether user speech can interrupt the synthesized speech. Defaults to `true`. */
+  interruptable?: boolean;
+}
+
+/** An instruction that the agent processes as input to the LLM. */
+export interface ThinkMessage {
+  /** Instruction text injected into the conversation as user input. */
+  text: string;
+  /** Action to take while the agent is listening. Defaults to `INTERRUPT`. */
+  onListeningAction?: ThinkListeningAction;
+  /** Action to take while the agent is thinking. Defaults to `IGNORE`. */
+  onThinkingAction?: ThinkThinkingAction;
+  /** Action to take while the agent is speaking. Defaults to `IGNORE`. */
+  onSpeakingAction?: ThinkSpeakingAction;
+  /** Whether user speech can interrupt the response generated for this instruction. Defaults to `true`. */
+  interruptable?: boolean;
+  /** Optional caller-supplied business identifiers or other string key-value data. */
+  metadata?: Record<string, string>;
 }
 
 // --- local ---
