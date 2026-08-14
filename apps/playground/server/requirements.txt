@@ -1,0 +1,5 @@
+agora-agents==2.4.1
+fastapi>=0.115.0,<1.0.0
+python-dotenv>=1.0.0,<2.0.0
+socksio>=1.0.0,<2.0.0
+uvicorn>=0.30.0,<1.0.0

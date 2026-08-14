@@ -181,7 +181,7 @@ RTM-backed methods throw without `rtmEngine`: `sendText`, `sendImage`, `speak`, 
 │   └── react/               # agora-agent-client-toolkit-react
 ├── apps/
 │   ├── demo/                # Vanilla TS demo (Vite)
-│   └── playground/          # Interactive React playground
+│   └── playground/          # Full-stack React playground + local FastAPI server
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json
 ```
@@ -205,6 +205,7 @@ pnpm --filter agora-agent-client-toolkit-react typecheck
 
 # Run the demo apps
 pnpm --filter agora-conversational-ai-demo dev
+# Requires apps/playground/server/.env.local; see apps/playground/README.md
 pnpm --filter agora-conversational-ai-playground dev
 ```
 
