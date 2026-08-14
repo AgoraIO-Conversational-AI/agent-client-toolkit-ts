@@ -54,7 +54,7 @@ Exports from `agora-agent-client-toolkit-react`:
 ## Constraints
 
 - **Do not modify `CovSubRenderController`** without explicit task scope. It is battle-tested rendering logic; bugs here are silent and hard to reproduce without real agent traffic.
-- **RTM is optional** — never assume `rtmEngine` is present.
+- **RTM is optional** — never assume `rtmEngine` is present. This includes `speak()` and `think()`.
 - **`AgoraVoiceAI.init()` is async** — always `await`.
 - **pnpm only** — no npm or yarn commands.
 - **`jszip` and `@agora-js/report` are optional deps** — guard all usages.

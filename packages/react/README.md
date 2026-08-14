@@ -7,7 +7,7 @@ For RTC primitives (microphone tracks, camera tracks, remote users, volume level
 ## Install
 
 ```bash
-pnpm add agora-agent-client-toolkit-react@2.9.1 agora-agent-client-toolkit@2.9.1 agora-rtc-react agora-rtc-sdk-ng agora-rtm
+pnpm add agora-agent-client-toolkit-react@2.10.0 agora-agent-client-toolkit@2.10.0 agora-rtc-react agora-rtc-sdk-ng agora-rtm
 ```
 
 Keep `agora-agent-client-toolkit-react` and `agora-agent-client-toolkit` on the same version.
@@ -91,7 +91,7 @@ function VoiceAI() {
 | `agora-rtc-react` | >= 2.0.0 |
 | `agora-rtc-sdk-ng` | >= 4.23.4 |
 | `agora-rtm` | >= 2.0.0 (required for state events and controls) |
-| `agora-agent-client-toolkit` | 2.9.1 (same version as this package) |
+| `agora-agent-client-toolkit` | 2.10.0 (same version as this package) |
 
 ## API Reference
 
@@ -125,6 +125,8 @@ const {
   manualSOS,
   manualEOS,
   sendMessage,
+  speak,
+  think,
   metrics,
   messageReceipt,
 } = useConversationalAI(config);
@@ -144,6 +146,8 @@ const {
 | `manualSOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual start-of-speech and return the request ID. Requires `rtmEngine`. |
 | `manualEOS` | `(agentUserId: string, requestId?: string) => Promise<string>` | Trigger manual end-of-speech and return the request ID. Requires `rtmEngine`. |
 | `sendMessage` | `(agentUserId: string, text: string) => Promise<void>` | Send a text message to the agent. Requires `rtmEngine`. |
+| `speak` | `(agentUserId: string, message: SpeakMessage) => Promise<void>` | Send text directly to the agent's TTS pipeline. Requires `rtmEngine`. |
+| `think` | `(agentUserId: string, message: ThinkMessage) => Promise<void>` | Send an instruction through the agent's LLM pipeline. Requires `rtmEngine`. |
 | `metrics` | `AgentMetric \| null` | Latest metric from `AGENT_METRICS` (module type, name, value, timestamp). |
 | `messageReceipt` | `MessageReceipt \| null` | Latest delivery receipt from `MESSAGE_RECEIPT_UPDATED`. |
 
@@ -217,11 +221,12 @@ function StatusBar() {
 
 ### `useConversationalAIContext()`
 
-Access SDK controls from any component inside a `ConversationalAIProvider`, without having to re-pass config. Returns `sendMessage`, `interrupt`, `manualSOS`, `manualEOS`, and the underlying `instance`.
+Access SDK controls from any component inside a `ConversationalAIProvider`, without having to re-pass config. Returns `sendMessage`, `speak`, `think`, `interrupt`, `manualSOS`, `manualEOS`, and the underlying `instance`.
 
 ```tsx
 function ChatInput({ agentUid }: { agentUid: string }) {
-  const { sendMessage, interrupt, manualSOS, manualEOS } = useConversationalAIContext();
+  const { sendMessage, speak, think, interrupt, manualSOS, manualEOS } =
+    useConversationalAIContext();
 
   return (
     <div>
@@ -229,6 +234,8 @@ function ChatInput({ agentUid }: { agentUid: string }) {
       <button onClick={() => manualSOS(agentUid)}>SOS</button>
       <button onClick={() => manualEOS(agentUid)}>EOS</button>
       <button onClick={() => sendMessage(agentUid, 'hello')}>Send</button>
+      <button onClick={() => speak(agentUid, { text: 'hello' })}>Speak</button>
+      <button onClick={() => think(agentUid, { text: 'answer this' })}>Think</button>
     </div>
   );
 }

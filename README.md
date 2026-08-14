@@ -83,6 +83,8 @@ ai.subscribeMessage('CHANNEL');
 
 // Send a message or interrupt the agent (requires RTM)
 await ai.sendText('AGENT_UID', { messageType: ChatMessageType.TEXT, text: 'Hello' });
+await ai.speak('AGENT_UID', { text: 'This text is sent directly to TTS.' });
+await ai.think('AGENT_UID', { text: 'Use the LLM to answer this instruction.' });
 await ai.interrupt('AGENT_UID');
 ```
 
@@ -168,7 +170,7 @@ RTM is optional. Transcripts and agent state work without it — just omit `rtmE
 const ai = await AgoraVoiceAI.init({ rtcEngine: rtcClient });
 ```
 
-RTM-backed methods throw without `rtmEngine`: `sendText`, `sendImage`, `interrupt`, `manualSOS`, and `manualEOS`.
+RTM-backed methods throw without `rtmEngine`: `sendText`, `sendImage`, `speak`, `think`, `interrupt`, `manualSOS`, and `manualEOS`.
 
 ## Repository layout
 

@@ -62,7 +62,7 @@ The rendering controller is the most complex and highest-risk module in the code
 
 - `AgoraVoiceAI` is a **singleton** — `init()` creates it, `getInstance()` retrieves it, `destroy()` clears it.
 - `AgoraVoiceAI.init()` is **async** — always `await` it.
-- RTM is **optional** — use the top-level `rtmEngine` field. RTM-backed methods throw if it is omitted.
+- RTM is **optional** — use the top-level `rtmEngine` field. RTM-backed methods, including `speak()` and `think()`, throw if it is omitted.
 - `AgoraVoiceAIConfig` is defined in `src/core/config.ts`. `src/core/conversational-ai.ts` re-exports it — don't define it there.
 
 ## Package names

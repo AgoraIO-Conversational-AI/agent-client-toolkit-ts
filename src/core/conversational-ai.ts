@@ -5,12 +5,17 @@ import {
   ChatMessagePriority,
   ChatMessageType,
   MessageType,
+  ThinkListeningAction,
+  ThinkSpeakingAction,
+  ThinkThinkingAction,
   RTCEventType,
   RTMEventType,
   TranscriptHelperMode,
   type AgentTranscription,
   type ChatMessageImage,
   type ChatMessageText,
+  type SpeakMessage,
+  type ThinkMessage,
   type AgentManualEosEvent,
   type MessageSalStatusData,
   type TranscriptHelperItem,
@@ -49,7 +54,7 @@ import { CovSubRenderController } from '../rendering/sub-render';
 import { ChunkedMessageAssembler } from '../messaging/chunked';
 
 const TAG = 'AgoraVoiceAI';
-const VERSION = '2.9.1';
+const VERSION = '2.10.0';
 
 const formatLog = factoryFormatLog({ tag: TAG });
 const USER_MANUAL_SOS_CUSTOM_TYPE = 'user.manual_sos';
@@ -322,7 +327,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
 
   /**
    * Requires RTM to be configured. Throws a descriptive error when called
-   * without rtmEngine. Used internally by sendText, sendImage, and interrupt.
+   * without rtmEngine. Used internally by all RTM-backed message APIs.
    */
   private requireRTM(method = 'requireRTM'): RTMEngine {
     if (!this.rtmEngine) {
@@ -706,6 +711,100 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
       );
       throw new ConversationalAIError(
         `Failed to send image message: ${(error as Error).message ?? error}`,
+        { cause: error }
+      );
+    }
+  }
+
+  /**
+   * Broadcasts text directly through the agent's TTS pipeline without LLM processing.
+   *
+   * @param agentUserId - The RTM user ID of the agent
+   * @param message - Direct speech content and scheduling options
+   * @remarks Requires `rtmEngine` to be present in `init()`.
+   */
+  public async speak(agentUserId: string, message: SpeakMessage): Promise<void> {
+    const traceId = genTraceID();
+    this.callMessagePrint(ELoggerType.debug, `>>> [traceID:${traceId}] [speak] ${agentUserId}`);
+
+    const rtmEngine = this.requireRTM('speak');
+    const priorities: Record<ChatMessagePriority, string> = {
+      [ChatMessagePriority.INTERRUPTED]: 'INTERRUPT',
+      [ChatMessagePriority.APPEND]: 'APPEND',
+      [ChatMessagePriority.IGNORE]: 'IGNORE',
+    };
+    const payload = JSON.stringify({
+      priority: priorities[message.priority ?? ChatMessagePriority.INTERRUPTED],
+      interruptable: message.interruptable ?? true,
+      message: message.text,
+    });
+    const options = {
+      channelType: 'USER',
+      customType: MessageType.AGENT_TRANSCRIPTION,
+    };
+
+    try {
+      await rtmEngine.publish(agentUserId, payload, options);
+      this.callMessagePrint(
+        ELoggerType.debug,
+        `<<< [traceID:${traceId}] [speak]`,
+        'successfully sent speak message'
+      );
+    } catch (error: unknown) {
+      this.callMessagePrint(
+        ELoggerType.error,
+        `<<< [traceID:${traceId}] [speak]`,
+        'failed to send speak message',
+        error
+      );
+      throw new ConversationalAIError(
+        `Failed to send speak message: ${(error as Error).message ?? error}`,
+        { cause: error }
+      );
+    }
+  }
+
+  /**
+   * Injects an instruction that the agent processes through the LLM.
+   *
+   * @param agentUserId - The RTM user ID of the agent
+   * @param message - Instruction content and state-specific scheduling actions
+   * @remarks Requires `rtmEngine` to be present in `init()`.
+   */
+  public async think(agentUserId: string, message: ThinkMessage): Promise<void> {
+    const traceId = genTraceID();
+    this.callMessagePrint(ELoggerType.debug, `>>> [traceID:${traceId}] [think] ${agentUserId}`);
+
+    const rtmEngine = this.requireRTM('think');
+    const payload = JSON.stringify({
+      message: message.text,
+      on_listening_action: message.onListeningAction ?? ThinkListeningAction.INTERRUPT,
+      on_thinking_action: message.onThinkingAction ?? ThinkThinkingAction.IGNORE,
+      on_speaking_action: message.onSpeakingAction ?? ThinkSpeakingAction.IGNORE,
+      interruptable: message.interruptable ?? true,
+      ...(message.metadata === undefined ? {} : { metadata: message.metadata }),
+    });
+    const options = {
+      channelType: 'USER',
+      customType: MessageType.USER_TRANSCRIPTION,
+    };
+
+    try {
+      await rtmEngine.publish(agentUserId, payload, options);
+      this.callMessagePrint(
+        ELoggerType.debug,
+        `<<< [traceID:${traceId}] [think]`,
+        'successfully sent think message'
+      );
+    } catch (error: unknown) {
+      this.callMessagePrint(
+        ELoggerType.error,
+        `<<< [traceID:${traceId}] [think]`,
+        'failed to send think message',
+        error
+      );
+      throw new ConversationalAIError(
+        `Failed to send think message: ${(error as Error).message ?? error}`,
         { cause: error }
       );
     }
