@@ -17,7 +17,7 @@ pnpm add agora-agent-client-toolkit-react agora-agent-client-toolkit agora-rtc-r
 
 ## Migration
 
-Upgrading from an earlier release? See the [migration guide](./MIGRATION.md), including the steps for `2.9.0 -> 2.9.1`.
+Upgrading from an earlier release? See the [migration guide](./MIGRATION.md), including the steps for `2.9.1 -> 2.10.0`.
 
 ### Optional dependencies
 
@@ -155,10 +155,10 @@ function VoiceSession() {
 
 ## Packages
 
-| Package                                                                      | Version | Description                        |
-| ---------------------------------------------------------------------------- | ------- | ---------------------------------- |
-| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md)       | 2.9.1   | Core SDK — vanilla JS / TypeScript |
-| [`agora-agent-client-toolkit-react`](./packages/react/README.md)             | 2.9.1   | React hooks                        |
+| Package                                                                | Version | Description                        |
+| ---------------------------------------------------------------------- | ------- | ---------------------------------- |
+| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md) | 2.10.0  | Core SDK — vanilla JS / TypeScript |
+| [`agora-agent-client-toolkit-react`](./packages/react/README.md)       | 2.10.0  | React hooks                        |
 
 Full API reference, configuration options, and events are in each package's README.
 
