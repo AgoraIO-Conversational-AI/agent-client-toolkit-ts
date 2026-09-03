@@ -10,7 +10,7 @@ from typing import Any
 
 from agora_agent import Area, AsyncAgora
 from agora_agent.agentkit import Agent
-from agora_agent.agentkit.vendors import FengmingSTT, MiniMaxTTS, OpenAI
+from agora_agent.agentkit.vendors import AresSTT, MiniMaxTTS, OpenAI
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -85,7 +85,7 @@ class AgentService:
                 "enable_error_message": True,
             },
         ).with_stt(
-            FengmingSTT()
+            AresSTT()
         ).with_llm(
             OpenAI(
                 model="gpt-4o-mini",

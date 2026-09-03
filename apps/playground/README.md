@@ -24,8 +24,8 @@ React frontend
 ```
 
 The App Certificate and Agent credentials stay in the local server. They are
-never sent to the browser. The server uses `agora-agents==2.4.1` with Agora
-Fengming STT, managed OpenAI `gpt-4o-mini`, and MiniMax
+never sent to the browser. The server uses `agora-agents>=2.4.1,<3.0.0` with Agora
+Ares STT, managed OpenAI `gpt-4o-mini`, and MiniMax
 `speech_2_6_turbo` TTS.
 
 ## Configure
@@ -60,6 +60,9 @@ instructions and stop startup.
 
 Open `http://127.0.0.1:3000`. The FastAPI server listens on
 `http://127.0.0.1:8002`.
+
+To start only the FastAPI backend, follow the commands in
+[server/README.md](./server/README.md#run-the-backend-only).
 
 The startup flow is:
 

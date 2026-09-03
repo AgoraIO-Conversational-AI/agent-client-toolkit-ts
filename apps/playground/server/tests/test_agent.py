@@ -64,7 +64,7 @@ def test_start_builds_managed_pipeline_and_turn_modes(monkeypatch):
     assert captured["session"]["idle_timeout"] == 120
     assert captured["session"]["expires_in"] == TOKEN_LIFETIME_SECONDS
     assert captured["session"]["enable_string_uid"] is False
-    assert captured["config"]["stt"] == {"vendor": "fengming"}
+    assert captured["config"]["stt"] == {"vendor": "ares"}
     assert captured["config"]["llm"]["params"]["model"] == "gpt-4o-mini"
     assert "api_key" not in captured["config"]["llm"]
     assert captured["config"]["tts"]["vendor"] == "minimax"

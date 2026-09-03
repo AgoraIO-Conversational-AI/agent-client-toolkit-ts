@@ -2,9 +2,9 @@
 
 This local FastAPI service owns Agora credentials, unified user token
 generation, and Agent lifecycle operations for `apps/playground`. It uses
-`agora-agents==2.4.1`.
+`agora-agents>=2.4.1,<3.0.0`.
 
-`src/agent.py` configures Agora Fengming STT with managed OpenAI LLM and
+`src/agent.py` configures Agora Ares STT with managed OpenAI LLM and
 MiniMax TTS. Only `AGORA_APP_ID` and `AGORA_APP_CERTIFICATE` are required in
 the Git-ignored `.env.local` file.
 
@@ -14,8 +14,30 @@ also includes optional `AGENT_PROMPT`, `AGENT_GREETING`, and `PORT` overrides.
 Keep `PORT` at `8002` unless the playground's Vite proxy is updated to the same
 value.
 
-`pnpm dev` creates the Python virtual environment and installs its dependencies
-when `.venv` is missing. It intentionally does not create `.env.local` because
+## Run the backend only
+
+From `apps/playground`, initialize the Python environment and start only the
+FastAPI backend:
+
+```bash
+pnpm run backend:setup
+pnpm run server
+```
+
+The server listens on `http://127.0.0.1:8002` by default. Verify it after
+startup with:
+
+```bash
+curl http://127.0.0.1:8002/health
+```
+
+Open `http://127.0.0.1:8002/docs` for the API summary. Press `Ctrl+C` in the
+server terminal to stop it. The `server` command loads `server/.env.local`,
+including its optional `PORT` value.
+
+To start both the FastAPI backend and Vite frontend, use `pnpm dev` instead.
+That command creates the Python virtual environment and installs its
+dependencies when `.venv` is missing. Neither command creates `.env.local`;
 valid Agora credentials must be supplied explicitly.
 
 ## Endpoints
