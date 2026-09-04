@@ -86,6 +86,7 @@ export enum RTCCustomEventType {
  * @since 0.1.0
  */
 export enum ModuleType {
+  ASR = 'asr',
   LLM = 'llm',
   MLLM = 'mllm',
   TTS = 'tts',

@@ -7,6 +7,11 @@ Migration notes for each release should link to the matching section in [MIGRATI
 
 ## [Unreleased]
 
+### Fixed
+
+- Emitted ASR performance metrics through `AGENT_METRICS` instead of discarding the `asr`
+  module as unknown.
+
 ### Deprecated
 
 - Deprecated `AGENT_STATE_CHANGED` for direct SDK integrations. Use the
