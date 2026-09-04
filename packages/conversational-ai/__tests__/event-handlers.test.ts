@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { AgoraVoiceAI } from '../../../src/core/conversational-ai';
 import { AgoraVoiceAIEvents } from '../../../src/core/events';
-import { MessageType, RTCEventType, RTMEventType } from '../../../src/core/types';
+import { MessageType, ModuleType, RTCEventType, RTMEventType } from '../../../src/core/types';
 import { createMockRTCClient, createMockRTMClient } from './helpers/mocks';
 
 describe('AgoraVoiceAI event handlers', () => {
@@ -407,6 +407,39 @@ describe('AgoraVoiceAI event handlers', () => {
         ttsTtfbMs: 400,
         transportMs: 500,
       },
+    });
+  });
+
+  it('RTM message.metrics emits ASR latency through AGENT_METRICS', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmEngine: rtm as never,
+    });
+    const handler = vi.fn();
+
+    ai.on(AgoraVoiceAIEvents.AGENT_METRICS, handler);
+    ai.subscribeMessage('test-ch');
+
+    rtm.__emit(RTMEventType.MESSAGE, {
+      publisher: 'agent-uid',
+      message: JSON.stringify({
+        object: MessageType.MSG_METRICS,
+        module: 'asr',
+        metric_name: 'first_token_latency',
+        turn_id: 23,
+        latency_ms: 321,
+        send_ts: 1710000000123,
+      }),
+    });
+
+    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledWith('agent-uid', {
+      type: ModuleType.ASR,
+      name: 'first_token_latency',
+      value: 321,
+      timestamp: 1710000000123,
     });
   });
 

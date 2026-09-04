@@ -234,7 +234,7 @@ ai.on(AgoraVoiceAIEvents.AGENT_METRICS, (agentUserId, metrics) => {
   // agentUserId: string
   // metrics: { type: ModuleType, name: string, value: number, timestamp: number }
 });
-// ModuleType: 'llm' | 'mllm' | 'tts' | 'context' | 'unknown'
+// ModuleType: 'asr' | 'llm' | 'mllm' | 'tts' | 'context' | 'unknown'
 ```
 
 > Requires `parameters.enable_metrics: true` in the agent start request.
