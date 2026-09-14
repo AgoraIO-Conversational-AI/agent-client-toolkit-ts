@@ -6,7 +6,7 @@ Framework-agnostic TypeScript SDK for building real-time conversational AI exper
 
 ```bash
 pnpm add agora-agent-client-toolkit agora-rtc-sdk-ng
-# RTM is optional — only required for sendText, sendImage, interrupt, manualSOS, manualEOS
+# RTM is optional — only required for sendText, sendImage, speak, think, interrupt, manualSOS, manualEOS
 pnpm add agora-rtm
 ```
 
@@ -122,6 +122,8 @@ ai.unsubscribe(): void
 ai.chat(agentUserId: string, message: ChatMessageText | ChatMessageImage): Promise<void>
 ai.sendText(agentUserId: string, message: ChatMessageText): Promise<void>   // requires rtmEngine
 ai.sendImage(agentUserId: string, message: ChatMessageImage): Promise<void> // requires rtmEngine
+ai.speak(agentUserId: string, message: SpeakMessage): Promise<void>         // requires rtmEngine
+ai.think(agentUserId: string, message: ThinkMessage): Promise<void>         // requires rtmEngine
 ai.interrupt(agentUserId: string): Promise<void>                            // requires rtmEngine
 ai.manualSOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmEngine
 ai.manualEOS(agentUserId: string, requestId?: string): Promise<string>      // requires rtmEngine
@@ -132,6 +134,27 @@ ai.off(event, handler): void
 ```
 
 > **Note:** `AgoraVoiceAI` does not wrap RTC join/publish. Call `rtcClient.join()` and `rtcClient.publish()` directly on your Agora RTC client before calling `ai.subscribeMessage()`.
+
+`chat()` remains limited to text and image messages. Use `speak()` to send text directly to the agent's TTS pipeline, or `think()` to process an instruction through the LLM:
+
+```typescript
+await ai.speak(agentUserId, {
+  text: 'Please remain seated.',
+  priority: ChatMessagePriority.INTERRUPTED, // default; serialized as INTERRUPT
+  interruptable: true, // default
+});
+
+await ai.think(agentUserId, {
+  text: 'Summarize the current conversation.',
+  onListeningAction: ThinkListeningAction.INTERRUPT, // default
+  onThinkingAction: ThinkThinkingAction.IGNORE, // default
+  onSpeakingAction: ThinkSpeakingAction.IGNORE, // default
+  interruptable: true, // default
+  metadata: { requestId: 'request-001' }, // optional
+});
+```
+
+Listening actions are `INJECT`, `INTERRUPT`, `IGNORE`, and `APPEND`. Thinking and speaking actions are `INTERRUPT`, `IGNORE`, and `APPEND`.
 
 #### Advanced API
 
@@ -369,7 +392,7 @@ Advanced: implement `IMetricsReporter` or use the exported `ConsoleMetricsReport
 | Error Class | When Thrown | Recovery |
 |------------|------------|----------|
 | `NotInitializedError` | `getInstance()` or `getCfg()` called before `init()` | Call `await AgoraVoiceAI.init(config)` first |
-| `RTMRequiredError` | `sendText()`, `sendImage()`, `interrupt()`, `manualSOS()`, or `manualEOS()` called without RTM | Pass `rtmEngine` in `init()` config |
+| `RTMRequiredError` | An RTM-backed message API is called without RTM | Pass `rtmEngine` in `init()` config |
 | `ConversationalAIError` | `chat()` called with unsupported message type | Check `message.messageType` is TEXT or IMAGE |
 
 All error classes extend `ConversationalAIError`, which extends `Error`. Use `instanceof` to catch specific error types.

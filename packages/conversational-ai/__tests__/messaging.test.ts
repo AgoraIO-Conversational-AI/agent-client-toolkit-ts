@@ -3,6 +3,9 @@ import { AgoraVoiceAI } from '../../../src/core/conversational-ai';
 import {
   ChatMessageType,
   ChatMessagePriority,
+  ThinkListeningAction,
+  ThinkSpeakingAction,
+  ThinkThinkingAction,
   RTMRequiredError,
   ConversationalAIError,
 } from '../../../src/core/types';
@@ -10,7 +13,11 @@ import { createMockRTCClient, createMockRTMClient } from './helpers/mocks';
 
 describe('AgoraVoiceAI messaging', () => {
   afterEach(() => {
-    try { AgoraVoiceAI.getInstance().destroy(); } catch { /* ok */ }
+    try {
+      AgoraVoiceAI.getInstance().destroy();
+    } catch {
+      /* ok */
+    }
   });
 
   it('sendText() with valid RTM config calls rtmEngine.publish()', async () => {
@@ -68,6 +75,172 @@ describe('AgoraVoiceAI messaging', () => {
     const parsed = JSON.parse(payload as string);
     expect(parsed.uuid).toBe('img-123');
     expect(parsed.image_url).toBe('https://example.com/image.png');
+  });
+
+  it('speak() publishes documented defaults to the agent user', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmEngine: rtm as never,
+    });
+
+    await ai.speak('agent-uid', { text: 'hello' });
+
+    expect(rtm.publish).toHaveBeenCalledOnce();
+    const [userId, payload, options] = rtm.publish.mock.calls[0];
+    expect(userId).toBe('agent-uid');
+    expect(JSON.parse(payload as string)).toEqual({
+      priority: 'INTERRUPT',
+      interruptable: true,
+      message: 'hello',
+    });
+    expect(options).toEqual({
+      channelType: 'USER',
+      customType: 'assistant.transcription',
+    });
+  });
+
+  it.each([
+    [ChatMessagePriority.INTERRUPTED, 'INTERRUPT'],
+    [ChatMessagePriority.APPEND, 'APPEND'],
+    [ChatMessagePriority.IGNORE, 'IGNORE'],
+  ])('speak() serializes priority %s as %s', async (priority, expectedPriority) => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmEngine: rtm as never,
+    });
+
+    await ai.speak('agent-uid', {
+      text: 'hello',
+      priority,
+      interruptable: false,
+    });
+
+    const [, payload] = rtm.publish.mock.calls[0];
+    expect(JSON.parse(payload as string)).toEqual({
+      priority: expectedPriority,
+      interruptable: false,
+      message: 'hello',
+    });
+  });
+
+  it('speak() without RTM config throws RTMRequiredError', async () => {
+    const rtc = createMockRTCClient();
+    const ai = await AgoraVoiceAI.init({ rtcEngine: rtc as never });
+
+    await expect(ai.speak('agent-uid', { text: 'hello' })).rejects.toThrow(RTMRequiredError);
+  });
+
+  it('think() publishes documented defaults and omits metadata', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmEngine: rtm as never,
+    });
+
+    await ai.think('agent-uid', { text: 'one plus one' });
+
+    expect(rtm.publish).toHaveBeenCalledOnce();
+    const [userId, payload, options] = rtm.publish.mock.calls[0];
+    expect(userId).toBe('agent-uid');
+    expect(JSON.parse(payload as string)).toEqual({
+      message: 'one plus one',
+      on_listening_action: 'interrupt',
+      on_thinking_action: 'ignore',
+      on_speaking_action: 'ignore',
+      interruptable: true,
+    });
+    expect(options).toEqual({
+      channelType: 'USER',
+      customType: 'user.transcription',
+    });
+  });
+
+  it('think() serializes metadata and interruptable', async () => {
+    const rtc = createMockRTCClient();
+    const rtm = createMockRTMClient();
+    const ai = await AgoraVoiceAI.init({
+      rtcEngine: rtc as never,
+      rtmEngine: rtm as never,
+    });
+
+    await ai.think('agent-uid', {
+      text: 'one plus one',
+      interruptable: false,
+      metadata: { requestId: 'request-001', source: 'web-demo' },
+    });
+
+    const [, payload] = rtm.publish.mock.calls[0];
+    expect(JSON.parse(payload as string)).toEqual({
+      message: 'one plus one',
+      on_listening_action: 'interrupt',
+      on_thinking_action: 'ignore',
+      on_speaking_action: 'ignore',
+      interruptable: false,
+      metadata: { requestId: 'request-001', source: 'web-demo' },
+    });
+  });
+
+  it.each(Object.values(ThinkListeningAction))(
+    'think() serializes listening action %s',
+    async (onListeningAction) => {
+      const rtc = createMockRTCClient();
+      const rtm = createMockRTMClient();
+      const ai = await AgoraVoiceAI.init({
+        rtcEngine: rtc as never,
+        rtmEngine: rtm as never,
+      });
+
+      await ai.think('agent-uid', { text: 'hello', onListeningAction });
+
+      const [, payload] = rtm.publish.mock.calls[0];
+      expect(JSON.parse(payload as string).on_listening_action).toBe(onListeningAction);
+    }
+  );
+
+  it.each(Object.values(ThinkThinkingAction))(
+    'think() serializes thinking action %s',
+    async (onThinkingAction) => {
+      const rtc = createMockRTCClient();
+      const rtm = createMockRTMClient();
+      const ai = await AgoraVoiceAI.init({
+        rtcEngine: rtc as never,
+        rtmEngine: rtm as never,
+      });
+
+      await ai.think('agent-uid', { text: 'hello', onThinkingAction });
+
+      const [, payload] = rtm.publish.mock.calls[0];
+      expect(JSON.parse(payload as string).on_thinking_action).toBe(onThinkingAction);
+    }
+  );
+
+  it.each(Object.values(ThinkSpeakingAction))(
+    'think() serializes speaking action %s',
+    async (onSpeakingAction) => {
+      const rtc = createMockRTCClient();
+      const rtm = createMockRTMClient();
+      const ai = await AgoraVoiceAI.init({
+        rtcEngine: rtc as never,
+        rtmEngine: rtm as never,
+      });
+
+      await ai.think('agent-uid', { text: 'hello', onSpeakingAction });
+
+      const [, payload] = rtm.publish.mock.calls[0];
+      expect(JSON.parse(payload as string).on_speaking_action).toBe(onSpeakingAction);
+    }
+  );
+
+  it('think() without RTM config throws RTMRequiredError', async () => {
+    const rtc = createMockRTCClient();
+    const ai = await AgoraVoiceAI.init({ rtcEngine: rtc as never });
+
+    await expect(ai.think('agent-uid', { text: 'hello' })).rejects.toThrow(RTMRequiredError);
   });
 
   it('interrupt() with valid RTM publishes interrupt payload', async () => {

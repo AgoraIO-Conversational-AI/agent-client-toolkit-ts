@@ -13,6 +13,8 @@ const mockInterrupt = vi.fn();
 const mockManualSOS = vi.fn();
 const mockManualEOS = vi.fn();
 const mockSendText = vi.fn();
+const mockSpeak = vi.fn();
+const mockThink = vi.fn();
 
 let mockInstance: Record<string, unknown>;
 
@@ -27,6 +29,8 @@ function createMockInstance() {
     manualSOS: mockManualSOS,
     manualEOS: mockManualEOS,
     sendText: mockSendText,
+    speak: mockSpeak,
+    think: mockThink,
   };
 }
 
@@ -304,6 +308,36 @@ describe('useConversationalAI', () => {
 
     expect(typeof result.current.interrupt).toBe('function');
     expect(typeof result.current.sendMessage).toBe('function');
+  });
+
+  it('forwards speak and think messages to the AI instance', async () => {
+    const { result } = renderConversationalAI({ channel: 'test-channel' });
+
+    await waitFor(() => {
+      expect(mockSubscribeMessage).toHaveBeenCalled();
+    });
+
+    const speakMessage = { text: 'hello' };
+    const thinkMessage = { text: 'one plus one' };
+    await result.current.speak('agent-uid', speakMessage);
+    await result.current.think('agent-uid', thinkMessage);
+
+    expect(mockSpeak).toHaveBeenCalledWith('agent-uid', speakMessage);
+    expect(mockThink).toHaveBeenCalledWith('agent-uid', thinkMessage);
+  });
+
+  it('speak and think reject before the AI instance is ready', async () => {
+    mockInit.mockReturnValue(new Promise(() => undefined));
+    const { result } = renderConversationalAI({ channel: 'test-channel' });
+
+    await expect(result.current.speak('agent-uid', { text: 'hello' })).rejects.toThrow(
+      'not initialized yet'
+    );
+    await expect(result.current.think('agent-uid', { text: 'hello' })).rejects.toThrow(
+      'not initialized yet'
+    );
+    expect(mockSpeak).not.toHaveBeenCalled();
+    expect(mockThink).not.toHaveBeenCalled();
   });
 
   it('exposes manualSOS and manualEOS callbacks', async () => {

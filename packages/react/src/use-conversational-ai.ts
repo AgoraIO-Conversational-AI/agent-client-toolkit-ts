@@ -17,6 +17,8 @@ import {
   type AgentMetric,
   type ModuleError,
   type MessageReceipt,
+  type SpeakMessage,
+  type ThinkMessage,
 } from 'agora-agent-client-toolkit';
 import { AgoraVoiceAIContext } from './context';
 
@@ -61,6 +63,10 @@ export interface UseConversationalAIReturn {
    * Throws `[AgoraVoiceAI] This method requires RTM.` when called without RTM.
    */
   sendMessage: (agentUserId: string, text: string) => Promise<void>;
+  /** Broadcast text directly through the agent's TTS pipeline. Requires RTM. */
+  speak: (agentUserId: string, message: SpeakMessage) => Promise<void>;
+  /** Send an instruction for the agent to process through the LLM. Requires RTM. */
+  think: (agentUserId: string, message: ThinkMessage) => Promise<void>;
   /** Latest agent metrics. Null until the first AGENT_METRICS event. */
   metrics: AgentMetric | null;
   /** Latest message receipt. Null until the first MESSAGE_RECEIPT_UPDATED event. */
@@ -243,6 +249,14 @@ function useConversationalAICore(config: UseConversationalAIConfig): UseConversa
     });
   }, []);
 
+  const speak = useCallback(async (agentUserId: string, message: SpeakMessage) => {
+    await requireReadyInstance(aiRef.current).speak(agentUserId, message);
+  }, []);
+
+  const think = useCallback(async (agentUserId: string, message: ThinkMessage) => {
+    await requireReadyInstance(aiRef.current).think(agentUserId, message);
+  }, []);
+
   return {
     transcript,
     agentState,
@@ -252,6 +266,8 @@ function useConversationalAICore(config: UseConversationalAIConfig): UseConversa
     manualSOS,
     manualEOS,
     sendMessage,
+    speak,
+    think,
     metrics,
     messageReceipt,
     aiInstance,

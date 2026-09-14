@@ -1,6 +1,6 @@
 {
   "name": "agora-agent-client-toolkit-react",
-  "version": "2.9.1",
+  "version": "2.10.0",
   "description": "React hooks for Agora Agent Client Toolkit",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

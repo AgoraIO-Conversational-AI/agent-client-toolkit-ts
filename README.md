@@ -17,7 +17,7 @@ pnpm add agora-agent-client-toolkit-react agora-agent-client-toolkit agora-rtc-r
 
 ## Migration
 
-Upgrading from an earlier release? See the [migration guide](./MIGRATION.md), including the steps for `2.9.0 -> 2.9.1`.
+Upgrading from an earlier release? See the [migration guide](./MIGRATION.md), including the steps for `2.9.1 -> 2.10.0`.
 
 ### Optional dependencies
 
@@ -83,6 +83,8 @@ ai.subscribeMessage('CHANNEL');
 
 // Send a message or interrupt the agent (requires RTM)
 await ai.sendText('AGENT_UID', { messageType: ChatMessageType.TEXT, text: 'Hello' });
+await ai.speak('AGENT_UID', { text: 'This text is sent directly to TTS.' });
+await ai.think('AGENT_UID', { text: 'Use the LLM to answer this instruction.' });
 await ai.interrupt('AGENT_UID');
 ```
 
@@ -153,10 +155,10 @@ function VoiceSession() {
 
 ## Packages
 
-| Package                                                                      | Version | Description                        |
-| ---------------------------------------------------------------------------- | ------- | ---------------------------------- |
-| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md)       | 2.9.1   | Core SDK — vanilla JS / TypeScript |
-| [`agora-agent-client-toolkit-react`](./packages/react/README.md)             | 2.9.1   | React hooks                        |
+| Package                                                                | Version | Description                        |
+| ---------------------------------------------------------------------- | ------- | ---------------------------------- |
+| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md) | 2.10.0  | Core SDK — vanilla JS / TypeScript |
+| [`agora-agent-client-toolkit-react`](./packages/react/README.md)       | 2.10.0  | React hooks                        |
 
 Full API reference, configuration options, and events are in each package's README.
 
@@ -168,7 +170,7 @@ RTM is optional. Transcripts and agent state work without it — just omit `rtmE
 const ai = await AgoraVoiceAI.init({ rtcEngine: rtcClient });
 ```
 
-RTM-backed methods throw without `rtmEngine`: `sendText`, `sendImage`, `interrupt`, `manualSOS`, and `manualEOS`.
+RTM-backed methods throw without `rtmEngine`: `sendText`, `sendImage`, `speak`, `think`, `interrupt`, `manualSOS`, and `manualEOS`.
 
 ## Repository layout
 
@@ -179,7 +181,7 @@ RTM-backed methods throw without `rtmEngine`: `sendText`, `sendImage`, `interrup
 │   └── react/               # agora-agent-client-toolkit-react
 ├── apps/
 │   ├── demo/                # Vanilla TS demo (Vite)
-│   └── playground/          # Interactive React playground
+│   └── playground/          # Full-stack React playground + local FastAPI server
 ├── pnpm-workspace.yaml
 └── tsconfig.base.json
 ```
@@ -203,6 +205,7 @@ pnpm --filter agora-agent-client-toolkit-react typecheck
 
 # Run the demo apps
 pnpm --filter agora-conversational-ai-demo dev
+# Requires apps/playground/server/.env.local; see apps/playground/README.md
 pnpm --filter agora-conversational-ai-playground dev
 ```
 

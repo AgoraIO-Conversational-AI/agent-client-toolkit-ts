@@ -9,7 +9,7 @@ A pnpm monorepo containing:
 - **`agora-agent-client-toolkit`** — framework-agnostic TypeScript SDK for Agora Conversational AI
 - **`agora-agent-client-toolkit-react`** — React hooks wrapping the core SDK
 - **`apps/demo`** — vanilla TS demo (Vite)
-- **`apps/playground`** — interactive playground
+- **`apps/playground`** — full-stack React playground with a local FastAPI server
 
 ## Commands
 
@@ -22,12 +22,13 @@ pnpm --filter <name> typecheck
 
 ## Source locations
 
-| What | Where |
-|------|-------|
-| Core SDK source | `src/` |
-| Core package config | `packages/conversational-ai/` |
-| React hooks | `packages/react/src/` |
-| Demo | `apps/demo/` |
+| What                  | Where                         |
+| --------------------- | ----------------------------- |
+| Core SDK source       | `src/`                        |
+| Core package config   | `packages/conversational-ai/` |
+| React hooks           | `packages/react/src/`         |
+| Demo                  | `apps/demo/`                  |
+| Full-stack playground | `apps/playground/`            |
 
 > The tsup build for `agora-agent-client-toolkit` reads from `src/` (via `../../src` in `packages/conversational-ai/tsup.config.ts`). There is no source in `packages/conversational-ai/src/`.
 
@@ -54,7 +55,7 @@ Exports from `agora-agent-client-toolkit-react`:
 ## Constraints
 
 - **Do not modify `CovSubRenderController`** without explicit task scope. It is battle-tested rendering logic; bugs here are silent and hard to reproduce without real agent traffic.
-- **RTM is optional** — never assume `rtmEngine` is present.
+- **RTM is optional** — never assume `rtmEngine` is present. This includes `speak()` and `think()`.
 - **`AgoraVoiceAI.init()` is async** — always `await`.
 - **pnpm only** — no npm or yarn commands.
 - **`jszip` and `@agora-js/report` are optional deps** — guard all usages.
@@ -64,8 +65,8 @@ Exports from `agora-agent-client-toolkit-react`:
 ```typescript
 // Core config
 interface AgoraVoiceAIConfig {
-  rtcEngine: IAgoraRTCClient;       // required
-  rtmEngine?: RTMClient;            // optional
+  rtcEngine: IAgoraRTCClient; // required
+  rtmEngine?: RTMClient; // optional
   renderMode?: TranscriptHelperMode; // TEXT | WORD | AUTO
   enableLog?: boolean;
   enableAgoraMetrics?: boolean;
@@ -85,6 +86,7 @@ pnpm --filter agora-agent-client-toolkit-react test:watch
 ```
 
 Core test files live in `packages/conversational-ai/__tests__/`:
+
 - `chunked.test.ts` — `ChunkedMessageAssembler` assembly logic
 - `chunked-validation.test.ts` — `ChunkedMessageAssembler` input validation
 - `lifecycle.test.ts` — `AgoraVoiceAI` singleton lifecycle
@@ -93,6 +95,7 @@ Core test files live in `packages/conversational-ai/__tests__/`:
 - `concurrency.test.ts` — concurrent init and race conditions
 
 React hook test files live in `packages/react/__tests__/`:
+
 - `use-conversational-ai.test.tsx` — `useConversationalAI` lifecycle and state
 - `standalone-hooks.test.tsx` — `useTranscript`, `useAgentState`, `useAgentError`, `useAgentMetrics`
 

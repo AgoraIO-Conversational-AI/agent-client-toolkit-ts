@@ -4,9 +4,22 @@ Use this file for all version-to-version upgrade steps.
 
 ## Version index
 
+- [2.9.1 -> 2.10.0](#291---2100)
 - [2.9.0 -> 2.9.1](#290---291)
 - [1.2.x -> 2.9.0](#12x---290)
 - [1.1.x -> 1.2.0](#11x---120)
+
+---
+
+## 2.9.1 -> 2.10.0
+
+This release adds optional RTM-backed `speak()` and `think()` APIs. Existing `chat()` calls remain limited to text and image messages and do not require changes.
+
+Use `speak(agentUserId, message)` to send text directly through the agent's TTS pipeline. Use `think(agentUserId, message)` to process an instruction through the LLM with independent listening, thinking, and speaking actions. Both APIs require `rtmEngine`.
+
+`speak()` reuses the existing `ChatMessagePriority` enum. `ChatMessagePriority.INTERRUPTED` is serialized to the protocol value `INTERRUPT`.
+
+Keep `agora-agent-client-toolkit-react` and `agora-agent-client-toolkit` on `2.10.0` together.
 
 ---
 
