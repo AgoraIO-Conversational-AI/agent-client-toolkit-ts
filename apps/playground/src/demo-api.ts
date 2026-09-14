@@ -120,11 +120,20 @@ export async function startAgent(config: DemoConfig): Promise<StartAgentResult> 
 }
 
 export async function stopAgent(agentId: string): Promise<void> {
-  const response = await fetch('/stopAgent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agentId }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(new Error('Stop agent timed out after 10 seconds'));
+  }, 10_000);
 
-  await readBackendData(response, 'Stop agent');
+  try {
+    const response = await fetch('/stopAgent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agentId }),
+      signal: controller.signal,
+    });
+    await readBackendData(response, 'Stop agent');
+  } finally {
+    clearTimeout(timeout);
+  }
 }
