@@ -22,6 +22,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe('Python backend API contract', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('maps get_config into the RTC/RTM session config', async () => {
@@ -101,6 +102,42 @@ describe('Python backend API contract', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ agentId: 'agent-123' }),
+      signal: expect.any(AbortSignal),
     });
+  });
+
+  it.each(['headers', 'body'])(
+    'times out a stop request stalled while reading %s',
+    async (phase) => {
+      vi.useFakeTimers();
+      let signal: AbortSignal | undefined;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((_url: string, init: RequestInit) => {
+          signal = init.signal as AbortSignal;
+          const pending = new Promise<string>((_resolve, reject) => {
+            signal?.addEventListener('abort', () => reject(signal?.reason), { once: true });
+          });
+          return phase === 'headers'
+            ? pending
+            : Promise.resolve({ ok: true, status: 200, text: () => pending });
+        })
+      );
+
+      const result = stopAgent('agent-123');
+      expect(signal).toBeInstanceOf(AbortSignal);
+      const failure = expect(result).rejects.toThrow('Stop agent timed out');
+      await vi.advanceTimersByTimeAsync(10_000);
+      await failure;
+      expect(signal?.aborted).toBe(true);
+      expect(vi.getTimerCount()).toBe(0);
+    }
+  );
+
+  it('clears the stop deadline when the backend succeeds', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ code: 0, data: null })));
+    await stopAgent('agent-123');
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

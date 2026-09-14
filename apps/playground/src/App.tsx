@@ -16,6 +16,7 @@ import {
   ThinkSpeakingAction,
   ThinkThinkingAction,
   type AgentManualEosEvent,
+  type IConversationalAIAPIEventHandlers,
   type ITranscriptHelperItem,
   type TAgentMetric,
   type TAgentTurnFinished,
@@ -1054,6 +1055,8 @@ function Session({
   const aiRef = useRef<ConversationalAIAPI | null>(null);
   const agentIdRef = useRef<string | null>(null);
   const subscribedRtmChannelRef = useRef<string | null>(null);
+  const stoppedRef = useRef(false);
+  const cleanupPromiseRef = useRef<Promise<void> | null>(null);
 
   const addLog = useCallback((entry: Omit<LogEntry, 'time'>) => {
     setLogs((current) => [...current.slice(-99), { ...entry, time: Date.now() }]);
@@ -1075,7 +1078,11 @@ function Session({
     }
   }, [addLog]);
 
-  const cleanupMedia = useCallback(async () => {
+  const cleanupMedia = useCallback(() => {
+    stoppedRef.current = true;
+    if (cleanupPromiseRef.current) return cleanupPromiseRef.current;
+
+    const networkCleanup: Array<() => Promise<unknown>> = [];
     if (micMonitorTimerRef.current !== null) {
       window.clearInterval(micMonitorTimerRef.current);
       micMonitorTimerRef.current = null;
@@ -1086,14 +1093,18 @@ function Session({
     setMicMuted(false);
 
     if (localAudioTrack) {
-      await rtcClient.unpublish([localAudioTrack]).catch(() => undefined);
+      // Release the microphone before waiting for any network operation.
       localAudioTrack.close();
+      networkCleanup.push(() => rtcClient.unpublish([localAudioTrack]));
+    }
+    for (const user of rtcClient.remoteUsers) {
+      user.audioTrack?.stop();
     }
 
     const subscribedChannel = subscribedRtmChannelRef.current;
     subscribedRtmChannelRef.current = null;
     if (subscribedChannel) {
-      await rtmClient.unsubscribe(subscribedChannel).catch(() => undefined);
+      networkCleanup.push(() => rtmClient.unsubscribe(subscribedChannel));
     }
 
     const ai = aiRef.current;
@@ -1111,18 +1122,23 @@ function Session({
       }
     }
 
-    await Promise.allSettled([rtcClient.leave(), rtmClient.logout()]);
+    // A stalled unpublish/unsubscribe must not prevent leaving the transports.
+    networkCleanup.push(
+      () => rtcClient.leave(),
+      () => rtmClient.logout()
+    );
+    cleanupPromiseRef.current = Promise.allSettled(
+      networkCleanup.map(async (cleanup) => cleanup())
+    ).then(() => undefined);
+    return cleanupPromiseRef.current;
   }, [rtcClient, rtmClient]);
 
-  const disconnect = useCallback(async () => {
-    try {
-      await stopStartedAgent().catch((error) => {
-        addLog({ level: 'error', message: 'Agent stop failed', detail: String(error) });
-      });
-      await cleanupMedia();
-    } finally {
-      onDisconnect();
-    }
+  const disconnect = useCallback(() => {
+    void cleanupMedia();
+    void stopStartedAgent().catch((error) => {
+      addLog({ level: 'error', message: 'Agent stop failed', detail: String(error) });
+    });
+    onDisconnect();
   }, [addLog, cleanupMedia, onDisconnect, stopStartedAgent]);
 
   const toggleMic = useCallback(async () => {
@@ -1187,11 +1203,24 @@ function Session({
         rtcClient.join(config.appId, config.channel, config.token, rtcUid),
         rtmClient.login({ token: config.token }),
       ]);
+      if (isCancelled()) {
+        await Promise.allSettled([rtcClient.leave(), rtmClient.logout()]);
+        return;
+      }
       const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      if (isCancelled()) {
+        audioTrack.close();
+        return;
+      }
       localAudioTrackRef.current = audioTrack;
       setMicMuted(false);
       await rtcClient.publish([audioTrack]);
+      if (isCancelled()) return;
       await rtmClient.subscribe(config.channel);
+      if (isCancelled()) {
+        await rtmClient.unsubscribe(config.channel).catch(() => undefined);
+        return;
+      }
       startMicMonitor(audioTrack);
       addLog({
         level: 'info',
@@ -1207,6 +1236,10 @@ function Session({
         renderMode: ETranscriptHelperMode.TEXT,
         enableLog: true,
       });
+      if (isCancelled()) {
+        if (ConversationalAIAPI.getInstance() === ai) ai.destroy();
+        return;
+      }
       aiRef.current = ai;
 
       const onTranscript = (items: ITranscriptHelperItem<unknown>[]) => {
@@ -1252,6 +1285,16 @@ function Session({
       };
       const onError = (agentUserId: string, error: TModuleError) =>
         addLog({ level: 'error', message: `Agent error from ${agentUserId}`, detail: error });
+      const onMessageError: IConversationalAIAPIEventHandlers[EConversationalAIAPIEvents.MESSAGE_ERROR] =
+        (agentUserId, error) =>
+          addLog({ level: 'error', message: `Message error from ${agentUserId}`, detail: error });
+      const onMessageReceipt: IConversationalAIAPIEventHandlers[EConversationalAIAPIEvents.MESSAGE_RECEIPT_UPDATED] =
+        (agentUserId, receipt) =>
+          addLog({
+            level: 'info',
+            message: `Message receipt from ${agentUserId}`,
+            detail: receipt,
+          });
       const onMetrics = (agentUserId: string, metrics: TAgentMetric) =>
         addLog({ level: 'info', message: `Metrics from ${agentUserId}`, detail: metrics });
       const onSos = (agentUserId: string, event: UserManualSosEvent) =>
@@ -1268,6 +1311,8 @@ function Session({
       ai.on(EConversationalAIAPIEvents.AGENT_SPEAKING_CHANGED, onSpeaking);
       ai.on(EConversationalAIAPIEvents.AGENT_TURN_FINISHED, onTurnFinished);
       ai.on(EConversationalAIAPIEvents.AGENT_ERROR, onError);
+      ai.on(EConversationalAIAPIEvents.MESSAGE_ERROR, onMessageError);
+      ai.on(EConversationalAIAPIEvents.MESSAGE_RECEIPT_UPDATED, onMessageReceipt);
       ai.on(EConversationalAIAPIEvents.AGENT_METRICS, onMetrics);
       ai.on(EConversationalAIAPIEvents.USER_MANUAL_SOS, onSos);
       ai.on(EConversationalAIAPIEvents.USER_MANUAL_EOS, onEos);
@@ -1318,7 +1363,7 @@ function Session({
     rtcClient.on('user-left', handleUserLeft);
     rtcClient.on('user-published', handleUserPublished);
 
-    void startSession({ isCancelled: () => cancelled }).catch((error) => {
+    void startSession({ isCancelled: () => cancelled || stoppedRef.current }).catch((error) => {
       if (cancelled) return;
       addLog({ level: 'error', message: 'Connection failed', detail: String(error) });
       setConnectionState('failed');
@@ -1394,7 +1439,7 @@ function Session({
       onChatModeChange={updateChatMode}
       onChatInputChange={setChatInput}
       onSendChat={(options) =>
-        void safeRun('Message sent', async () => {
+        void safeRun('Message submitted to RTM', async () => {
           const value = chatInput.trim();
           if (chatMode === 'text') {
             await aiRef.current?.chat(config.agentUserId, {
