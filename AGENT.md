@@ -101,3 +101,12 @@ React hook test files live in `packages/react/__tests__/`:
 - `standalone-hooks.test.tsx` — `useTranscript`, `useAgentState`, `useAgentError`, `useAgentMetrics`
 
 Functional validation against real agent traffic still requires Agora sandbox credentials.
+
+## Releases
+
+Follow the canonical checklist in [CONTRIBUTING.md](./CONTRIBUTING.md#releasing).
+Keep the core and React package versions synchronized, update the SDK `VERSION`
+constant and release documentation, and never push a release tag before the
+release PR and `main` CI pass. Any pushed tag currently starts the publish
+workflow; use the `vX.Y.Z` convention. Manual publishing does not create a
+GitHub Release.

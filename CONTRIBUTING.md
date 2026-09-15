@@ -83,6 +83,102 @@ apps/playground/                  # Full-stack React playground + FastAPI server
   - React (`packages/react`): lines/functions/statements 70%, branches 60%
 - Treat these as minimum gates; prefer raising coverage when touching low-covered areas.
 
+## Releasing
+
+Releases publish both SDK packages together. The workflow in
+[`.github/workflows/ci.yml`](./.github/workflows/ci.yml) is the source of truth;
+the steps below describe its current contract.
+
+### Prepare the release PR
+
+1. Choose an unused stable SemVer version. Confirm that it is not already on
+   npm:
+
+   ```bash
+   npm view "agora-agent-client-toolkit@X.Y.Z" version
+   npm view "agora-agent-client-toolkit-react@X.Y.Z" version
+   ```
+
+   Both lookups should report that the version does not exist. npm versions
+   cannot be overwritten after publication. These `npm view` commands only
+   inspect the registry; continue to use pnpm for workspace dependencies and
+   scripts.
+
+2. Update the release version in all required locations:
+
+   - `package.json` (private workspace metadata)
+   - `packages/conversational-ai/package.json` (published core package)
+   - `packages/react/package.json` (published React package)
+   - `src/core/conversational-ai.ts` (`VERSION`, used in SDK diagnostics)
+
+   The core and React package versions must match; CI rejects mismatched
+   versions. `apps/playground/package.json` is private and is not published or
+   validated by the release job, so update it only when intentionally aligning
+   the Playground version with the SDK release.
+
+3. Update the release-facing documentation:
+
+   - Add the release to `CHANGELOG.md`.
+   - Add `MIGRATION.md` guidance when consumers must change code or behavior.
+   - Update version references and migration links in the root and package
+     READMEs.
+
+4. Open a focused release PR and confirm every PR check passes, including the
+   Node 20/22/24 matrix, coverage, Playground build/tests, and Docker smoke
+   test. To run the release checks locally:
+
+   ```bash
+   pnpm install --frozen-lockfile
+   pnpm lint
+   pnpm format:check
+   pnpm build
+   pnpm --filter agora-agent-client-toolkit typecheck
+   pnpm --filter agora-agent-client-toolkit typecheck:interop
+   pnpm test
+   pnpm --filter agora-conversational-ai-playground backend:setup
+   pnpm --filter agora-conversational-ai-playground build
+   pnpm --filter agora-conversational-ai-playground test
+   ```
+
+### Publish from a tag
+
+After the release PR is merged and the `main` CI run succeeds, tag that exact
+commit and push the tag:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+Use the `vX.Y.Z` convention and do not move or reuse a release tag. The workflow
+currently runs for every pushed tag, not only tags beginning with `v`.
+
+The tag workflow reruns the Node matrix and Playground gate. After both pass,
+the publish job:
+
+- verifies that the core and React versions match;
+- builds and packs both packages;
+- publishes each package publicly to npm with provenance;
+- skips a package when that exact version already exists; and
+- creates a GitHub Release with generated notes for the pushed tag.
+
+The `workflow_dispatch` path publishes only when `publish_packages` is set to
+`true`. It does not create a GitHub Release, so reserve it for deliberate
+publish recovery rather than the normal release path.
+
+### Verify the release
+
+Confirm the workflow succeeded, the GitHub Release exists, and npm's `latest`
+tag resolves to the new version for both packages:
+
+```bash
+gh release view vX.Y.Z
+npm view agora-agent-client-toolkit version dist-tags --json
+npm view agora-agent-client-toolkit-react version dist-tags --json
+```
+
 ## Reporting Issues
 
 Open an issue on GitHub with:
