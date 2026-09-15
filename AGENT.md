@@ -59,6 +59,7 @@ Exports from `agora-agent-client-toolkit-react`:
 - **`AgoraVoiceAI.init()` is async** — always `await`.
 - **pnpm only** — no npm or yarn commands.
 - **`jszip` and `@agora-js/report` are optional deps** — guard all usages.
+- **The Playground backend is local-only.** Its token and agent lifecycle endpoints are intentionally unauthenticated for demo testing. Keep it bound to loopback (including Docker port mappings); do not expose it on a shared or public network without authentication, authorization, and abuse controls.
 
 ## Key interfaces
 
