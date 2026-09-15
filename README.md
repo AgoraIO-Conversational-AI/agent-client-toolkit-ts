@@ -209,6 +209,15 @@ pnpm --filter agora-conversational-ai-demo dev
 pnpm --filter agora-conversational-ai-playground dev
 ```
 
+The Playground's FastAPI server is for local development and testing, not an
+authenticated production backend. Its `/get_config`, `/startAgent`, and
+`/stopAgent` endpoints intentionally have no caller authentication so the local
+UI can obtain tokens and manage test agents. Keep the server reachable only on
+your machine. If running the Docker image, bind its port to loopback (for
+example, `-p 127.0.0.1:8002:8002`), not a public interface. Add authentication,
+authorization, and abuse controls before deploying it to a shared or public
+environment.
+
 ## License
 
 MIT
