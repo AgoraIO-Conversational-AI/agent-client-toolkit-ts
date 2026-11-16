@@ -157,8 +157,8 @@ function VoiceSession() {
 
 | Package                                                                | Version | Description                        |
 | ---------------------------------------------------------------------- | ------- | ---------------------------------- |
-| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md) | 2.10.0  | Core SDK — vanilla JS / TypeScript |
-| [`agora-agent-client-toolkit-react`](./packages/react/README.md)       | 2.10.0  | React hooks                        |
+| [`agora-agent-client-toolkit`](./packages/conversational-ai/README.md) | 2.11.0  | Core SDK — vanilla JS / TypeScript |
+| [`agora-agent-client-toolkit-react`](./packages/react/README.md)       | 2.11.0  | React hooks                        |
 
 Full API reference, configuration options, and events are in each package's README.
 

@@ -11,6 +11,11 @@ Migration notes for each release should link to the matching section in [MIGRATI
 
 - Emitted ASR performance metrics through `AGENT_METRICS` instead of discarding the `asr`
   module as unknown.
+- Word render mode no longer drops a word whose `start_ms` equals an already
+  kept word with different text, such as a zero-duration word rounded by
+  Cartesia TTS. Duplicates are now identified by word text plus `start_ms`.
+  Words inside one message are no longer deduplicated against each other, and
+  interrupt marks are kept when later messages for the same turn arrive.
 
 ### Deprecated
 

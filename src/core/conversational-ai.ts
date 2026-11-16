@@ -54,7 +54,7 @@ import { CovSubRenderController } from '../rendering/sub-render';
 import { ChunkedMessageAssembler } from '../messaging/chunked';
 
 const TAG = 'AgoraVoiceAI';
-const VERSION = '2.10.0';
+const VERSION = '2.11.0';
 
 const formatLog = factoryFormatLog({ tag: TAG });
 const USER_MANUAL_SOS_CUSTOM_TYPE = 'user.manual_sos';

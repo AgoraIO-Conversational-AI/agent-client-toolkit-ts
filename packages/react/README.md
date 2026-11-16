@@ -7,7 +7,7 @@ For RTC primitives (microphone tracks, camera tracks, remote users, volume level
 ## Install
 
 ```bash
-pnpm add agora-agent-client-toolkit-react@2.10.0 agora-agent-client-toolkit@2.10.0 agora-rtc-react agora-rtc-sdk-ng agora-rtm
+pnpm add agora-agent-client-toolkit-react@2.11.0 agora-agent-client-toolkit@2.11.0 agora-rtc-react agora-rtc-sdk-ng agora-rtm
 ```
 
 Keep `agora-agent-client-toolkit-react` and `agora-agent-client-toolkit` on the same version.
@@ -91,7 +91,7 @@ function VoiceAI() {
 | `agora-rtc-react` | >= 2.0.0 |
 | `agora-rtc-sdk-ng` | >= 4.23.4 |
 | `agora-rtm` | >= 2.0.0 (required for state events and controls) |
-| `agora-agent-client-toolkit` | 2.10.0 (same version as this package) |
+| `agora-agent-client-toolkit` | 2.11.0 (same version as this package) |
 
 ## API Reference
 

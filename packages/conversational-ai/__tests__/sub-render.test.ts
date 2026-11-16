@@ -137,6 +137,94 @@ describe('CovSubRenderController render-mode fallback', () => {
     expect(controller.chatHistory[0]?.text).toBe('he');
   });
 
+  // -------------------------------------------------------------------------
+  // word-same-timestamp-dedup-fix: I1–I3 (in-progress messages, relative start_ms)
+  // -------------------------------------------------------------------------
+  function wordMessage(turnId: number, labels: string[]): AgentTranscription {
+    return {
+      ...createAgentTranscription(
+        turnId,
+        '',
+        labels.map((label) => {
+          const at = label.lastIndexOf('@');
+          const raw = label.slice(0, at);
+          return {
+            word: raw === '␠' ? ' ' : raw,
+            start_ms: Number(label.slice(at + 1)),
+            duration_ms: 0,
+            stable: true,
+          };
+        })
+      ),
+      turn_status: TurnStatus.IN_PROGRESS,
+    };
+  }
+
+  function createWordController() {
+    vi.useFakeTimers();
+    const controller = new CovSubRenderController();
+    controllers.push(controller);
+    controller.setMode(TranscriptHelperMode.WORD, { enableRenderModeFallback: true });
+    controller.run();
+    return controller;
+  }
+
+  it('I1: Cartesia playback keeps different@6984 across messages', () => {
+    const controller = createWordController();
+    controller.setPts(7400);
+    const k = ['try@6744', '␠@6902', 'a@6984'];
+    const m1 = ['try@6744', '␠@6902', 'a@6984', '␠@6983', 'different@6984'];
+    const m2 = ['␠@6902', 'a@6984', '␠@6983', 'different@6984', '␠@7222', 'one.@7304'];
+    controller.handleMessage(wordMessage(1, k), { publisher: 'agent' });
+    controller.handleMessage(wordMessage(1, m1), { publisher: 'agent' });
+    controller.handleMessage(wordMessage(1, m2), { publisher: 'agent' });
+    vi.advanceTimersByTime(200);
+    expect(controller.chatHistory[0]?.text).toBe('try  adifferent one.');
+  });
+
+  it('I2: Chinese first message keeps both 团', () => {
+    const controller = createWordController();
+    controller.setPts(7700);
+    controller.handleMessage(
+      wordMessage(1, ['想@6932', '～@7195', '团@7195', '团@7413', '昨@7686']),
+      { publisher: 'agent' }
+    );
+    vi.advanceTimersByTime(200);
+    expect(controller.chatHistory[0]?.text).toBe('想～团团昨');
+  });
+
+  it('I3: words arriving after an interrupt keep the interrupt point', () => {
+    const controller = createWordController();
+    controller.setPts(6990);
+    controller.handleMessage(wordMessage(1, ['try@6744', '␠@6902', 'a@6984']), {
+      publisher: 'agent',
+    });
+    vi.advanceTimersByTime(200);
+
+    controller.handleMessage(
+      {
+        object: MessageType.MSG_INTERRUPTED,
+        message_id: 'interrupt-i3',
+        data_type: 'message',
+        turn_id: 1,
+        start_ms: 6984,
+        send_ts: 6984,
+      },
+      { publisher: 'agent' }
+    );
+    controller.handleMessage(
+      wordMessage(1, ['␠@6902', 'a@6984', '␠@6983', 'different@6984', '␠@7222', 'one.@7304']),
+      { publisher: 'agent' }
+    );
+    vi.advanceTimersByTime(200);
+    expect(controller.chatHistory[0]?.text).toBe('try  adifferent');
+    expect(controller.chatHistory[0]?.status).toBe(TurnStatus.INTERRUPTED);
+
+    controller.setPts(7400);
+    vi.advanceTimersByTime(200);
+    expect(controller.chatHistory[0]?.text).toBe('try  adifferent');
+  });
+
   it('keeps WORD mode when render-mode fallback is disabled', () => {
     const controller = new CovSubRenderController();
     controllers.push(controller);
