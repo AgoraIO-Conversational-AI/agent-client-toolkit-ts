@@ -1219,7 +1219,7 @@ export class AgoraVoiceAI extends EventHelper<AgoraVoiceAIEventHandlers> {
         console.warn(
           '[ConversationalAI] No TRANSCRIPT_UPDATED events received after 15s. ' +
             'Ensure the agent is running and connected to the same channel. ' +
-            'If using WORD mode, verify ENABLE_AUDIO_PTS_METADATA is set before creating the RTC client.'
+            'If using WORD mode, verify ENABLE_AUDIO_PTS is set before creating the RTC client.'
         );
       }
       if (this.rtmEngine && !receivedEvents.has('AGENT_STATE_CHANGED')) {

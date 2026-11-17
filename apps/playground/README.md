@@ -24,7 +24,7 @@ React frontend
 ```
 
 The App Certificate and Agent credentials stay in the local server. They are
-never sent to the browser. The server uses `agora-agents>=2.8.0,<3.0.0` with Agora
+never sent to the browser. The server uses `agora-agents>=2.14.0` with Agora
 Ares STT, managed OpenAI `gpt-4o-mini`, and MiniMax
 `speech_2_6_turbo` TTS.
 

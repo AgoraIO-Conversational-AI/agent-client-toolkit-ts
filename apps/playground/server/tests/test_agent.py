@@ -19,6 +19,12 @@ def test_rejects_example_placeholders():
         AgentService("your_agora_app_id", "your_agora_app_certificate")
 
 
+def test_sdk_client_uses_overseas_region():
+    service = AgentService("0" * 32, "1" * 32)
+
+    assert service.client.area_scope == "global"
+
+
 def test_start_builds_managed_pipeline_and_turn_modes(monkeypatch):
     service = AgentService("0" * 32, "1" * 32)
     captured = {}

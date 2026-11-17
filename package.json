@@ -25,7 +25,7 @@
     "@agora-js/report": "^4.24.0",
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^2.1.9",
-    "agora-rtc-sdk-ng": "^4.23.4",
+    "agora-rtc-sdk-ng": "^4.24.0",
     "agora-rtm": "^2.2.1",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",

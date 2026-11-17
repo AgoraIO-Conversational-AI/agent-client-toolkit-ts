@@ -89,7 +89,7 @@ function VoiceAI() {
 | Node.js | >= 20.0.0 |
 | React | >= 18 |
 | `agora-rtc-react` | >= 2.0.0 |
-| `agora-rtc-sdk-ng` | >= 4.23.4 |
+| `agora-rtc-sdk-ng` | >= 4.24.0 |
 | `agora-rtm` | >= 2.0.0 (required for state events and controls) |
 | `agora-agent-client-toolkit` | 2.11.0 (same version as this package) |
 

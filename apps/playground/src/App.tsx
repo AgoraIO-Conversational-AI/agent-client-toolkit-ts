@@ -1233,7 +1233,7 @@ function Session({
       const ai = await ConversationalAIAPI.init({
         rtcEngine: rtcClient,
         rtmEngine: rtmClient,
-        renderMode: ETranscriptHelperMode.TEXT,
+        renderMode: ETranscriptHelperMode.WORD,
         enableLog: true,
       });
       if (isCancelled()) {
@@ -1511,7 +1511,7 @@ export function App() {
 
     try {
       const nextConfig = await getSessionConfig(requestedConfig);
-      setAgoraParameter('ENABLE_AUDIO_PTS_METADATA', true);
+      setAgoraParameter('ENABLE_AUDIO_PTS', true);
       rtcRef.current = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
       rtmRef.current = new AgoraRTM.RTM(nextConfig.appId, nextConfig.userId);
       setConfig(nextConfig);

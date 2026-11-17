@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => {
     rtm,
     handlers,
     ai,
+    createClient: vi.fn(),
+    setParameter: vi.fn(),
     microphone: vi.fn(),
     init: vi.fn(),
     config: vi.fn(),
@@ -45,9 +47,9 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('agora-rtc-react', () => ({
   default: {
-    createClient: () => mocks.rtc,
+    createClient: mocks.createClient,
     createMicrophoneAudioTrack: mocks.microphone,
-    setParameter: vi.fn(),
+    setParameter: mocks.setParameter,
   },
   AgoraRTCProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -105,6 +107,7 @@ beforeEach(() => {
     fn.mockResolvedValue(undefined);
   }
   mocks.microphone.mockResolvedValue(mocks.track);
+  mocks.createClient.mockReturnValue(mocks.rtc);
   mocks.init.mockResolvedValue(mocks.ai);
   mocks.start.mockResolvedValue({ agentId: 'agent-123' });
   mocks.stop.mockResolvedValue(undefined);
@@ -116,6 +119,15 @@ afterEach(() => {
 });
 
 describe('Playground session controls', () => {
+  it('enables audio PTS before creating the RTC client', async () => {
+    await connect();
+
+    expect(mocks.setParameter).toHaveBeenCalledWith('ENABLE_AUDIO_PTS', true);
+    expect(mocks.setParameter.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.createClient.mock.invocationCallOrder[0]
+    );
+  });
+
   it.each([false, true])(
     'stops local media while backend stop is pending (transport cleanup pending: %s)',
     async (hangTransport) => {

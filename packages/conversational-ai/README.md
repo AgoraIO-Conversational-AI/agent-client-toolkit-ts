@@ -64,16 +64,16 @@ ai.subscribeMessage('YOUR_CHANNEL');
 
 | Requirement | Version |
 |-------------|---------|
-| `agora-rtc-sdk-ng` | ≥ 4.23.4 |
+| `agora-rtc-sdk-ng` | ≥ 4.24.0 |
 | `agora-rtm` | ≥ 2.0.0 (optional) |
 | TypeScript | ≥ 5.0 |
 | Node.js | ≥ 20.0.0 |
 | Browser target | ES2020+ |
 
-For WORD-mode transcript rendering, set `ENABLE_AUDIO_PTS_METADATA` before creating the RTC client:
+For WORD-mode transcript rendering, set `ENABLE_AUDIO_PTS` before creating the RTC client:
 
 ```typescript
-AgoraRTC.setParameter('ENABLE_AUDIO_PTS_METADATA', true);
+AgoraRTC.setParameter('ENABLE_AUDIO_PTS', true);
 const rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 ```
 
@@ -360,7 +360,7 @@ Common `errorMessage` values are `Current mode is not manual.`, `No turns availa
 | Value | Behavior |
 |-------|----------|
 | `TEXT` | Full-sentence updates, lower frequency |
-| `WORD` | Word-by-word updates using PTS metadata (requires `ENABLE_AUDIO_PTS_METADATA`) |
+| `WORD` | Word-by-word updates using PTS metadata (requires `ENABLE_AUDIO_PTS`) |
 | `CHUNK` | Chunked message assembly mode for stream data |
 | `AUTO` | Mode is detected automatically from the first agent message (default when omitted) |
 | _(omitted)_ | Same as `AUTO` — detected automatically from the first agent message |
@@ -494,7 +494,7 @@ See the [Agora Conversational AI documentation](https://docs.agora.io/en/convers
 
 **Cause:** WORD mode requires PTS (Presentation Timestamp) metadata from the RTC audio stream. This must be enabled before creating the RTC client.
 
-**Fix:** Call `AgoraRTC.setParameter('ENABLE_AUDIO_PTS_METADATA', true)` before `AgoraRTC.createClient()`, or use `renderMode: TranscriptHelperMode.TEXT` which doesn't require PTS.
+**Fix:** Call `AgoraRTC.setParameter('ENABLE_AUDIO_PTS', true)` before `AgoraRTC.createClient()`, or use `renderMode: TranscriptHelperMode.TEXT` which doesn't require PTS.
 
 ## Optional Dependencies
 

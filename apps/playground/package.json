@@ -17,7 +17,7 @@
     "agora-agent-client-toolkit": "workspace:*",
     "agora-agent-client-toolkit-react": "workspace:*",
     "agora-rtc-react": "^2.2.0",
-    "agora-rtc-sdk-ng": "^4.23.4",
+    "agora-rtc-sdk-ng": "^4.24.0",
     "agora-rtm": "^2.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

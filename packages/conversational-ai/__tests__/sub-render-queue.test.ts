@@ -362,7 +362,7 @@ describe('SubRenderQueue bug condition generator (Property 1)', () => {
 // against the unfixed SubRenderQueue; must pass before and after the fix.
 // ---------------------------------------------------------------------------
 describe('SubRenderQueue preservation: inputs outside the bug condition (Property 2)', () => {
-  it('U7: known gap keeps the later duplicate-key space dropped ("Let metry")', () => {
+  it('U7: deduplicates a space with the same text and timestamp as a kept word', () => {
     const queue = createQueue();
     push(queue, ['Let@6380', '␠@6662', 'me@6663']);
     push(queue, ['Let@6380', '␠@6662', 'me@6663', '␠@6662', 'try@6744']);

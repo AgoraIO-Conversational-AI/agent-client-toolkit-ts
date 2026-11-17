@@ -38,7 +38,7 @@ const CONFIG = {
 // Enable PTS metadata for word-level transcription timestamps.
 // Must be called before createClient().
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-(AgoraRTC as any).setParameter('ENABLE_AUDIO_PTS_METADATA', true);
+(AgoraRTC as any).setParameter('ENABLE_AUDIO_PTS', true);
 
 const rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
 
