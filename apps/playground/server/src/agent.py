@@ -10,19 +10,12 @@ from typing import Any
 
 from agora_agent import Area, AsyncAgora
 from agora_agent.agentkit import Agent
-from agora_agent.agentkit.vendors import AresSTT, MiniMaxTTS, OpenAI
+from agora_agent.agentkit.vendors import AresSTT, CartesiaTTS, MiniMaxTTS, OpenAI
 
 logger = logging.getLogger("uvicorn.error")
 
 TURN_DETECTION_MODES = frozenset({"vad", "semantic", "manual"})
 TOKEN_LIFETIME_SECONDS = 24 * 60 * 60
-
-DEFAULT_PROMPT = (
-    "You are a concise, helpful voice assistant. Keep replies short unless the "
-    "user asks for more detail."
-)
-DEFAULT_GREETING = "Hello! How can I help you today?"
-DEFAULT_FAILURE_MESSAGE = "Please wait a moment."
 
 
 class AgentService:
@@ -41,12 +34,32 @@ class AgentService:
         ):
             raise ValueError("AGORA_APP_ID and AGORA_APP_CERTIFICATE are required")
 
-        self.prompt = os.getenv("AGENT_PROMPT", DEFAULT_PROMPT)
-        self.greeting = os.getenv("AGENT_GREETING", DEFAULT_GREETING)
+        self.prompt = os.getenv("AGENT_PROMPT", "").strip()
+        self.greeting = os.getenv("AGENT_GREETING", "").strip()
+        self.failure_message = os.getenv("AGENT_FAILURE_MESSAGE", "").strip()
+        self.tts_vendor = os.getenv("AGENT_TTS_VENDOR", "").strip().lower()
+        if self.tts_vendor not in {"minimax", "cartesia"}:
+            raise ValueError("AGENT_TTS_VENDOR must be one of: minimax, cartesia")
+        self.cartesia_api_key = os.getenv("CARTESIA_API_KEY", "").strip()
+        self.cartesia_voice_id = os.getenv("CARTESIA_VOICE_ID", "").strip()
+        self.cartesia_model_id = os.getenv("CARTESIA_MODEL_ID", "").strip()
+        if self.tts_vendor == "cartesia":
+            for name, value in {
+                "CARTESIA_API_KEY": self.cartesia_api_key,
+                "CARTESIA_VOICE_ID": self.cartesia_voice_id,
+                "CARTESIA_MODEL_ID": self.cartesia_model_id,
+            }.items():
+                if not value or value.startswith("your_"):
+                    raise ValueError(f"{name} is required for Cartesia BYOK")
+        service_namespace = os.getenv("AGORA_AGENTS_SERVICE_NAMESPACE", "").strip()
         self.client = AsyncAgora(
             area=Area.US,
             app_id=self.app_id,
             app_certificate=self.app_certificate,
+            headers={"X-Service-Namespace": service_namespace}
+            if service_namespace
+            else None,
+            debug=True,
         )
         self._sessions: dict[str, Any] = {}
 
@@ -67,6 +80,19 @@ class AgentService:
             raise ValueError("userUid must be a positive integer")
         self._validate_turn_mode("startOfSpeechMode", start_of_speech_mode)
         self._validate_turn_mode("endOfSpeechMode", end_of_speech_mode)
+
+        if self.tts_vendor == "cartesia":
+            tts = CartesiaTTS(
+                credential_mode="byok",
+                api_key=self.cartesia_api_key,
+                voice_id=self.cartesia_voice_id,
+                model_id=self.cartesia_model_id,
+            )
+        else:
+            tts = MiniMaxTTS(
+                model="speech_2_6_turbo",
+                voice_id="English_captivating_female1",
+            )
 
         sdk_agent = Agent(
             client=self.client,
@@ -91,7 +117,7 @@ class AgentService:
                 model="gpt-4o-mini",
                 system_messages=[{"role": "system", "content": self.prompt}],
                 greeting_message=self.greeting,
-                failure_message=DEFAULT_FAILURE_MESSAGE,
+                failure_message=self.failure_message,
                 max_history=50,
                 params={
                     "max_tokens": 1024,
@@ -99,12 +125,7 @@ class AgentService:
                     "top_p": 0.95,
                 },
             )
-        ).with_tts(
-            MiniMaxTTS(
-                model="speech_2_6_turbo",
-                voice_id="English_captivating_female1",
-            )
-        )
+        ).with_tts(tts)
 
         session = sdk_agent.create_async_session(
             name=f"web-{int(time.time() * 1000)}-{uuid.uuid4().hex[:8]}",

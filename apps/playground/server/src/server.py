@@ -16,6 +16,8 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from agora_agent.agentkit.token import generate_convo_ai_token
+from agora_agent.agentkit.debug import redact_secrets
+from agora_agent.core.api_error import ApiError
 
 from .agent import AgentService, TOKEN_LIFETIME_SECONDS
 
@@ -164,11 +166,17 @@ async def start_agent(request: StartAgentRequest) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        logger.exception(
-            "Failed to start agent channel=%s agent_uid=%s user_uid=%s",
+        logger.error(
+            "Failed to start agent channel=%s agent_uid=%s user_uid=%s "
+            "error_type=%s status_code=%s request_id=%s response_body=%s",
             request.channelName,
             request.agentUid,
             request.userUid,
+            type(exc).__name__,
+            getattr(exc, "status_code", None),
+            (getattr(exc, "headers", None) or {}).get("x-request-id"),
+            redact_secrets(getattr(exc, "body", None)),
+            exc_info=not isinstance(exc, ApiError),
         )
         raise HTTPException(status_code=502, detail="Failed to start agent") from exc
 

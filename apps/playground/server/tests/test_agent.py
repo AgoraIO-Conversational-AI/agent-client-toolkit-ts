@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 
 import pytest
 
@@ -25,7 +26,56 @@ def test_sdk_client_uses_overseas_region():
     assert service.client.area_scope == "global"
 
 
-def test_start_builds_managed_pipeline_and_turn_modes(monkeypatch):
+@pytest.mark.parametrize(
+    "name", ["CARTESIA_API_KEY", "CARTESIA_VOICE_ID", "CARTESIA_MODEL_ID"]
+)
+@pytest.mark.parametrize("value", [None, "", " ", "your_cartesia_value"])
+def test_requires_selected_cartesia_configuration(monkeypatch, name, value):
+    monkeypatch.setenv("AGENT_TTS_VENDOR", "cartesia")
+    monkeypatch.setenv("CARTESIA_API_KEY", "test-cartesia-api-key")
+    if value is None:
+        monkeypatch.delenv(name, raising=False)
+    else:
+        monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError, match=name):
+        AgentService("0" * 32, "1" * 32)
+
+
+@pytest.mark.parametrize("vendor", [None, "", " ", "unsupported"])
+def test_rejects_missing_or_unknown_tts_vendor(monkeypatch, vendor):
+    if vendor is None:
+        monkeypatch.delenv("AGENT_TTS_VENDOR", raising=False)
+    else:
+        monkeypatch.setenv("AGENT_TTS_VENDOR", vendor)
+    with pytest.raises(ValueError, match="AGENT_TTS_VENDOR"):
+        AgentService("0" * 32, "1" * 32)
+
+
+@pytest.mark.parametrize(
+    ("tts_vendor", "cartesia_api_key", "voice_id", "model_id"),
+    [
+        (None, None, None, None),
+        ("minimax", "", "", ""),
+        (" minimax ", "your_cartesia_api_key", None, None),
+        ("MINIMAX", "unused-cartesia-key", None, None),
+        ("cartesia", "test-cartesia-api-key", None, None),
+        (" Cartesia ", " second-cartesia-api-key ", " custom-voice ", " sonic-2 "),
+    ],
+)
+def test_start_builds_selected_pipeline_and_turn_modes(
+    monkeypatch, tts_vendor, cartesia_api_key, voice_id, model_id
+):
+    for name, value in {
+        "AGENT_TTS_VENDOR": tts_vendor,
+        "CARTESIA_API_KEY": cartesia_api_key,
+        "CARTESIA_VOICE_ID": voice_id,
+        "CARTESIA_MODEL_ID": model_id,
+    }.items():
+        if value is not None:
+            monkeypatch.setenv(name, value)
+    monkeypatch.setenv("AGENT_PROMPT", "Test system prompt")
+    monkeypatch.setenv("AGENT_GREETING", "Test greeting")
+    monkeypatch.setenv("AGENT_FAILURE_MESSAGE", "Test failure message")
     service = AgentService("0" * 32, "1" * 32)
     captured = {}
 
@@ -73,9 +123,27 @@ def test_start_builds_managed_pipeline_and_turn_modes(monkeypatch):
     assert captured["config"]["stt"] == {"vendor": "ares"}
     assert captured["config"]["llm"]["params"]["model"] == "gpt-4o-mini"
     assert "api_key" not in captured["config"]["llm"]
-    assert captured["config"]["tts"]["vendor"] == "minimax"
-    assert captured["config"]["tts"]["_minimax_preset_model"] == "speech_2_6_turbo"
-    assert "key" not in captured["config"]["tts"]["params"]
+    assert captured["config"]["llm"]["system_messages"] == [
+        {"role": "system", "content": "Test system prompt"}
+    ]
+    assert captured["config"]["llm"]["greeting_message"] == "Test greeting"
+    assert captured["config"]["llm"]["failure_message"] == "Test failure message"
+    if (tts_vendor or "").strip().lower() == "cartesia":
+        assert captured["config"]["tts"] == {
+            "vendor": "cartesia",
+            "credential_mode": "byok",
+            "params": {
+                "api_key": cartesia_api_key.strip(),
+                "model_id": os.environ["CARTESIA_MODEL_ID"].strip(),
+                "voice": {"mode": "id", "id": os.environ["CARTESIA_VOICE_ID"].strip()},
+            },
+        }
+    else:
+        assert captured["config"]["tts"] == {
+            "vendor": "minimax",
+            "_minimax_preset_model": "speech_2_6_turbo",
+            "params": {"voice_setting": {"voice_id": "English_captivating_female1"}},
+        }
     assert captured["session"]["name"].startswith("web-")
 
 

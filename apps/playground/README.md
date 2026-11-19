@@ -14,6 +14,8 @@ interrupt, and manual SOS/EOS.
 server/.env.local
   AGORA_APP_ID
   AGORA_APP_CERTIFICATE
+  AGENT_TTS_VENDOR
+  CARTESIA_API_KEY (Cartesia only)
         -> FastAPI + agora-agents
         -> unified RTC/RTM user token and Agent lifecycle
 
@@ -25,8 +27,9 @@ React frontend
 
 The App Certificate and Agent credentials stay in the local server. They are
 never sent to the browser. The server uses `agora-agents>=2.14.0` with Agora
-Ares STT, managed OpenAI `gpt-4o-mini`, and MiniMax
-`speech_2_6_turbo` TTS.
+Ares STT, managed OpenAI `gpt-4o-mini`, and managed MiniMax TTS by default.
+To validate Cartesia BYOK, set `AGENT_TTS_VENDOR=cartesia` and
+`CARTESIA_API_KEY` in `server/.env.local`.
 
 ## Configure
 
@@ -44,7 +47,9 @@ cp server/.env.example server/.env.local
 # Set AGORA_APP_ID and AGORA_APP_CERTIFICATE in server/.env.local.
 ```
 
-The template also supports `AGENT_PROMPT`, `AGENT_GREETING`, and `PORT`.
+Keep the Agent configuration from the template, including `AGENT_TTS_VENDOR`,
+`AGENT_PROMPT`, `AGENT_GREETING`, and `AGENT_FAILURE_MESSAGE`. Values are read
+from env without built-in defaults. The template also includes `PORT`.
 Keep `PORT=8002` unless the proxy in `vite.config.ts` is changed too.
 
 ## Run
@@ -70,7 +75,7 @@ The startup flow is:
    UID, and Agent UID.
 2. The browser joins RTC, logs in to RTM, and subscribes the Toolkit to the RTM
    message channel.
-3. `POST /startAgent` starts the managed Agent session.
+3. `POST /startAgent` starts the Agent session.
 4. `POST /stopAgent` stops the tracked session, with stateless SDK fallback.
 
 ## Message API Coverage

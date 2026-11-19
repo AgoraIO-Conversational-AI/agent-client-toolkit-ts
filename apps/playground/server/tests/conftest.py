@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from dotenv import dotenv_values
 from fastapi.testclient import TestClient
 
 SERVER_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +32,21 @@ class FakeAgentService:
 
     async def stop(self, agent_id: str) -> None:
         self.stopped.append(agent_id)
+
+
+@pytest.fixture(autouse=True)
+def tts_environment(monkeypatch):
+    configuration = dotenv_values(SERVER_DIR / ".env.example")
+    for name in (
+        "AGENT_TTS_VENDOR",
+        "CARTESIA_API_KEY",
+        "CARTESIA_VOICE_ID",
+        "CARTESIA_MODEL_ID",
+        "AGENT_PROMPT",
+        "AGENT_GREETING",
+        "AGENT_FAILURE_MESSAGE",
+    ):
+        monkeypatch.setenv(name, configuration.get(name) or "")
 
 
 @pytest.fixture
