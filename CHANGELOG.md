@@ -11,11 +11,6 @@ Migration notes for each release should link to the matching section in [MIGRATI
 
 - Emitted ASR performance metrics through `AGENT_METRICS` instead of discarding the `asr`
   module as unknown.
-- Word render mode no longer drops a word whose `start_ms` equals an already
-  kept word with different text, such as a zero-duration word rounded by
-  Cartesia TTS. Duplicates are now identified by word text plus `start_ms`.
-  Words inside one message are no longer deduplicated against each other, and
-  interrupt marks are kept when later messages for the same turn arrive.
 
 ### Deprecated
 
@@ -24,6 +19,34 @@ Migration notes for each release should link to the matching section in [MIGRATI
   `AGENT_SPEAKING_CHANGED` events when multiple activity flags are needed.
   `AGENT_STATE_CHANGED` remains supported and emitted; React `agentState` APIs
   remain the aggregate compatibility surface.
+
+## [v2.11.0] - 2026-11-24
+
+### Fixed
+
+- Word render mode no longer drops a word whose `start_ms` equals an already
+  kept word with different text, such as a zero-duration word rounded by
+  Cartesia TTS. Duplicates are now identified by word text plus `start_ms`.
+  Words inside one message are no longer deduplicated against each other, and
+  interrupt marks are kept when later messages for the same turn arrive.
+- Demo applications enable `ENABLE_AUDIO_PTS` before creating the RTC client
+  so word-level subtitles receive playback timestamps.
+
+### Changed
+
+- Require `agora-rtc-sdk-ng>=4.24.0` and default the Playground to WORD render mode.
+- Read Playground Agent text and TTS selection from environment configuration.
+- Bumped the core and React npm packages to `2.11.0`.
+
+### Added
+
+- Optional Cartesia BYOK TTS in the local Playground backend, alongside MiniMax.
+- Custom Agent API base URL and service namespace configuration, plus redacted
+  SDK request, response, and upstream error diagnostics.
+
+### Upgrade notes
+
+- Migration guide: see [MIGRATION.md#2100---2110](./MIGRATION.md#2100---2110).
 
 ## [v2.10.0] - 2026-08-13
 

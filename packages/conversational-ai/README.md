@@ -10,6 +10,8 @@ pnpm add agora-agent-client-toolkit agora-rtc-sdk-ng
 pnpm add agora-rtm
 ```
 
+For `2.10.0 -> 2.11.0` upgrade steps, see the [migration guide](../../MIGRATION.md#2100---2110).
+
 ## Quick Start
 
 ```typescript

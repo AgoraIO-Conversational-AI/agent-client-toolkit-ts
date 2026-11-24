@@ -12,6 +12,8 @@ pnpm add agora-agent-client-toolkit-react@2.11.0 agora-agent-client-toolkit@2.11
 
 Keep `agora-agent-client-toolkit-react` and `agora-agent-client-toolkit` on the same version.
 
+For `2.10.0 -> 2.11.0` upgrade steps, see the [migration guide](../../MIGRATION.md#2100---2110).
+
 ## Quick Start
 
 Use `ConversationalAIProvider` to manage the AI lifecycle and give standalone hooks access via React context:
