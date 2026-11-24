@@ -4,10 +4,35 @@ Use this file for all version-to-version upgrade steps.
 
 ## Version index
 
+- [2.10.0 -> 2.11.0](#2100---2110)
 - [2.9.1 -> 2.10.0](#291---2100)
 - [2.9.0 -> 2.9.1](#290---291)
 - [1.2.x -> 2.9.0](#12x---290)
 - [1.1.x -> 1.2.0](#11x---120)
+
+---
+
+## 2.10.0 -> 2.11.0
+
+Upgrade `agora-agent-client-toolkit` and `agora-agent-client-toolkit-react`
+together to `2.11.0`, and use `agora-rtc-sdk-ng>=4.24.0`.
+
+For WORD-mode subtitles, enable audio PTS in application startup before creating
+the RTC client:
+
+```typescript
+AgoraRTC.setParameter('ENABLE_AUDIO_PTS', true);
+const rtcClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+```
+
+The SDK preserves different words that share a millisecond timestamp. Existing
+transcript event handlers do not need changes.
+
+For the local Playground backend, retain the Agent settings from
+`apps/playground/server/.env.example`, including `AGENT_TTS_VENDOR=minimax`.
+To select Cartesia BYOK, set `AGENT_TTS_VENDOR=cartesia` and configure
+`CARTESIA_API_KEY`, `CARTESIA_VOICE_ID`, and `CARTESIA_MODEL_ID` in the ignored
+`.env.local` file. The Playground now starts in WORD render mode.
 
 ---
 

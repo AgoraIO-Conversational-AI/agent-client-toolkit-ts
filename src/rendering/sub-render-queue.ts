@@ -278,8 +278,9 @@ export class SubRenderQueue {
     );
     targetQueueItem.text = data.text;
     targetQueueItem.words = this.sortWordsWithStatus(
-      [...targetQueueItem.words, ...data.words],
-      data.status
+      data.words,
+      data.status,
+      targetQueueItem.words
     );
     // if targetQueueItem.status is end, and data.status is in_progress, skip status update (unexpected case)
     if (
@@ -292,31 +293,52 @@ export class SubRenderQueue {
   }
 
   /**
-   * Sorts words by `start_ms`, deduplicates by `start_ms`, and stamps the
-   * final word with `turn_status` when the turn is complete or interrupted.
+   * Merges the words of one message into the words already kept for the turn.
+   *
+   * - Dedup key is (`word`, `start_ms`), checked only against `keptWords`.
+   *   Words within the same message are never compared with each other, so
+   *   different words (or repeats) sharing a `start_ms` are all kept.
+   * - Order is a stable sort by `start_ms`: kept words first, then new words
+   *   in message order.
+   * - Kept words keep INTERRUPTED; every other kept status (including END) is
+   *   reset to IN_PROGRESS. New words start as IN_PROGRESS.
+   * - Every word after the first INTERRUPTED word becomes INTERRUPTED.
+   * - When `turn_status` is not in progress, the last word is stamped with it,
+   *   which recomputes the END marker on each merge.
+   *
+   * Input objects are copied and never mutated.
    */
-  public sortWordsWithStatus(words: DataChunkMessageWord[], turn_status: TurnStatus) {
-    if (words.length === 0) {
-      return words;
-    }
-    const sortedWords: TranscriptHelperObjectWord[] = words
-      .map((word) => ({
+  public sortWordsWithStatus(
+    words: DataChunkMessageWord[],
+    turn_status: TurnStatus,
+    keptWords: TranscriptHelperObjectWord[] = []
+  ): TranscriptHelperObjectWord[] {
+    const newWords = words.filter(
+      (word) =>
+        !keptWords.some((kept) => kept.start_ms === word.start_ms && kept.word === word.word)
+    );
+    const mergedWords: TranscriptHelperObjectWord[] = [
+      ...keptWords.map((word) => ({
         ...word,
-        word_status: TurnStatus.IN_PROGRESS,
-      }))
-      .sort((a, b) => a.start_ms - b.start_ms)
-      .reduce((acc, curr) => {
-        // Only add if start_ms is unique
-        if (!acc.find((word) => word.start_ms === curr.start_ms)) {
-          acc.push(curr);
-        }
-        return acc;
-      }, [] as TranscriptHelperObjectWord[]);
-    const isMessageFinal = turn_status !== TurnStatus.IN_PROGRESS;
-    if (isMessageFinal && sortedWords.length > 0) {
-      sortedWords[sortedWords.length - 1].word_status = turn_status;
+        word_status:
+          word.word_status === TurnStatus.INTERRUPTED
+            ? TurnStatus.INTERRUPTED
+            : TurnStatus.IN_PROGRESS,
+      })),
+      ...newWords.map((word) => ({ ...word, word_status: TurnStatus.IN_PROGRESS })),
+    ].sort((a, b) => a.start_ms - b.start_ms);
+    const firstInterrupted = mergedWords.findIndex(
+      (word) => word.word_status === TurnStatus.INTERRUPTED
+    );
+    if (firstInterrupted >= 0) {
+      for (let i = firstInterrupted + 1; i < mergedWords.length; i++) {
+        mergedWords[i].word_status = TurnStatus.INTERRUPTED;
+      }
     }
-    return sortedWords;
+    if (turn_status !== TurnStatus.IN_PROGRESS && mergedWords.length > 0) {
+      mergedWords[mergedWords.length - 1].word_status = turn_status;
+    }
+    return mergedWords;
   }
 
   public reset() {

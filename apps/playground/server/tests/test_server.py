@@ -1,3 +1,7 @@
+import pytest
+from agora_agent.core.api_error import ApiError
+
+
 def test_root_is_a_human_readable_smoke_check(client):
     response = client.get("/")
     assert response.status_code == 200
@@ -109,6 +113,57 @@ def test_sdk_start_failure_does_not_expose_internal_error(client, server_module)
         "msg": "Failed to start agent",
     }
     assert "internal token" not in response.text
+
+
+@pytest.mark.parametrize(
+    "response_body",
+    [
+        {
+            "reason": "InvalidFieldValue",
+            "detail": "Unsupported field value",
+            "api_key": "private details",
+            "nested": {"token": "private details"},
+        },
+        "Unsupported field value",
+    ],
+)
+def test_sdk_error_body_is_logged_without_exposing_credentials(
+    client, server_module, caplog, response_body
+):
+    async def fail_start(**_kwargs):
+        raise ApiError(
+            status_code=400,
+            headers={
+                "x-request-id": "test-request-id",
+                "authorization": "Bearer private details",
+            },
+            body=response_body,
+        )
+
+    server_module.fake_agent_service.start = fail_start
+    response = client.post(
+        "/startAgent",
+        json={
+            "channelName": "channel-test",
+            "agentUid": 87654321,
+            "userUid": 123456,
+            "startOfSpeechMode": "vad",
+            "endOfSpeechMode": "semantic",
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["msg"] == "Failed to start agent"
+    assert "status_code=400" in caplog.text
+    assert "request_id=test-request-id" in caplog.text
+    assert "response_body=" in caplog.text
+    assert "Unsupported field value" in caplog.text
+    assert "private details" not in caplog.text
+    assert "Unsupported field value" not in response.text
+    assert "private details" not in response.text
+    if isinstance(response_body, dict):
+        assert "InvalidFieldValue" in caplog.text
+        assert "[REDACTED]" in caplog.text
 
 
 def test_stop_agent_is_forwarded(client, server_module):

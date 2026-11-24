@@ -75,8 +75,9 @@ if (!fs.existsSync(backendPython)) {
   } else {
     runSetup('python3', ['-m', 'venv', backendVenv]);
   }
-  runSetup(backendPython, ['-m', 'pip', 'install', '-r', requirements]);
 }
+
+runSetup(backendPython, ['-m', 'pip', 'install', '-r', requirements]);
 
 const children = new Set();
 let shuttingDown = false;

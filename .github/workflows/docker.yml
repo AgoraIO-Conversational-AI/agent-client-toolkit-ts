@@ -28,6 +28,7 @@ jobs:
       - name: Smoke test
         run: |
           docker run -d --name smoke -p 8002:8002 \
+            --env-file apps/playground/server/.env.example \
             -e AGORA_APP_ID=0123456789abcdef0123456789abcdef \
             -e AGORA_APP_CERTIFICATE=fedcba9876543210fedcba9876543210 \
             toolkit-backend:ci
